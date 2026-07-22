@@ -1,9 +1,12 @@
 "use server";
 
+import Anthropic from "@anthropic-ai/sdk";
 import { parseIngredientLine } from "@/lib/recipes/parseLine";
-import { lookupIngredientAlias } from "@/lib/recipes/lookupAlias";
+import { resolveWithHaikuFallback } from "@/lib/recipes/resolveWithHaikuFallback";
 import { extractRecipeFromHtml, RecipeJsonLdError, type RawRecipeDraft } from "@/lib/recipes/importJsonLd";
 import { createClient } from "@/lib/supabase/server";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 type FormIngredient = { amount: string; unit: string; name: string; ingredient_id: string | null; error?: string };
 export type ImportedRecipeDraft = Omit<RawRecipeDraft, "ingredients"> & { ingredients: FormIngredient[] };
@@ -30,8 +33,11 @@ export async function importRecipe(_previous: ImportState, formData: FormData): 
     const ingredients = await Promise.all(raw.ingredients.map(async (line) => {
       const parsed = parseIngredientLine(line);
       try {
-        const alias = await lookupIngredientAlias(supabase, parsed.name);
-        return { amount: String(parsed.amount), unit: parsed.unit ?? "", name: parsed.name, ingredient_id: alias?.ingredientId ?? null, ...(alias ? {} : { error: "Keine Zutat gefunden." }) };
+        // Stufen 1-3 aus docs/05-modul-rezepte.md: Regex bereits oben, hier
+        // Alias exakt/Fuzzy und bei Miss Haiku-Fallback (nur im automatisierten
+        // Import-Pfad, nicht im manuellen Formular — Kostengrund docs/11).
+        const ingredientId = await resolveWithHaikuFallback(supabase, anthropic, parsed.name);
+        return { amount: String(parsed.amount), unit: parsed.unit ?? "", name: parsed.name, ingredient_id: ingredientId, ...(ingredientId ? {} : { error: "Keine Zutat gefunden." }) };
       } catch {
         return { amount: String(parsed.amount), unit: parsed.unit ?? "", name: parsed.name, ingredient_id: null, error: "Zutatensuche fehlgeschlagen." };
       }

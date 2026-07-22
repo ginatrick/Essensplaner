@@ -60,3 +60,23 @@ export async function lookupIngredientAlias(
     confidence: top.similarity,
   };
 }
+
+// Schreibt einen neu erkannten Alias zurück (docs/05-modul-rezepte.md Schritt 3:
+// "Jeder LLM-Treffer schreibt einen Alias zurück"). Läuft über die
+// SECURITY DEFINER-RPC aus Migration 20260722140000, weil ingredient_aliases
+// laut RLS nur für service_role direkt beschreibbar ist. Die RPC ist
+// idempotent (on conflict (lower(alias)) do nothing) — ein zweiter Aufruf mit
+// demselben Alias-Text ist ein No-Op, kein Fehler.
+export async function writeIngredientAlias(
+  supabase: SupabaseClient,
+  input: { ingredientId: string; alias: string; source?: "recipe" | "offer" | "rewe"; confidence?: number | null },
+): Promise<void> {
+  const { error } = await supabase.rpc("insert_ingredient_alias", {
+    p_ingredient_id: input.ingredientId,
+    p_alias: input.alias,
+    p_source: input.source ?? "recipe",
+    p_confidence: input.confidence ?? null,
+  });
+
+  if (error) throw error;
+}
