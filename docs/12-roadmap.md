@@ -12,7 +12,7 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 
 ## Phase 1 — Rezepte
 - [ ] Rezept-CRUD-UI *(→ Codex)*
-- [ ] Zutaten-Parser Regex + Alias-Lookup
+- [x] Zutaten-Parser Regex + Alias-Lookup
 - [ ] Haiku-Fallback + Alias-Rückschreibung
 - [ ] URL-Import mit JSON-LD *(→ Codex)*
 - [ ] Testset 20 Rezeptseiten, Trefferquote messen
