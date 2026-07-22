@@ -27,6 +27,8 @@ deterministisch, schnell und kostenlos.
 Packungsrundung erst im Einkaufsplan, nie im Rezept.
 
 ## Definition of Done
-- [ ] URL-Import ≥ 85 % korrekte Zutatenerkennung auf 20 Testseiten
-- [ ] Alias-Tabelle wächst automatisch, Trefferquote messbar
+- [x] URL-Import ≥ 85 % korrekte Zutatenerkennung auf 20 Testseiten
+      (gemessen: 91,5 % — 236/258 Zutaten über 20 echte Rezeptseiten,
+      `web/scripts/measure-import-hitrate.mjs`, 2026-07-22)
+- [x] Alias-Tabelle wächst automatisch, Trefferquote messbar
 - [ ] Duplikaterkennung per Titel-Fuzzy + Zutaten-Overlap
