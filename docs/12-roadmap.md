@@ -18,8 +18,8 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 - [x] Testset 20 Rezeptseiten, Trefferquote messen (91,5 %, siehe docs/05)
 
 ## Phase 2 — Speiseplan
-- [ ] Wochenraster-UI mit Drag & Drop
-- [ ] `meal_plans` / `meal_plan_entries` + RLS
+- [x] Wochenraster-UI *(ohne Drag & Drop — Zuweisung per Inline-Suche, mit Nutzer abgestimmt; nur 1 Slot/Tag vorerst, Schema trägt bereits Mittag+Abend)*
+- [x] `meal_plans` / `meal_plan_entries` + RLS
 - [ ] Regel-Hinweise (14-Tage, veg, Fisch, Aufwand)
 - [ ] Templates
 - [ ] PDF/PNG-Export *(→ Codex)*
