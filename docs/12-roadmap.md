@@ -3,7 +3,7 @@
 Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 
 ## Phase 0 — Fundament
-- [ ] Next.js 15 + TS + Tailwind + shadcn Scaffold
+- [x] Next.js 15 + TS + Tailwind + shadcn Scaffold
 - [ ] Supabase-Projekt EU-Central, Magic Link Auth
 - [x] Schema-Migration 001 (Stammdaten + Rezepte) inkl. RLS
 - [x] Seed: `departments`, Top-200 `ingredients` mit Nährwerten *(→ Codex)*
