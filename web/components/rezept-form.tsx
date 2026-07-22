@@ -1,0 +1,84 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/client";
+import { toBaseUnit } from "@/lib/units/convert";
+
+export type RecipeFormValues = {
+  title: string; source_url: string; servings_base: number; prep_min: number | null; cook_min: number | null;
+  difficulty: "einfach" | "mittel" | "schwer" | null; tags: string[]; kid_friendly: boolean; is_experimental: boolean;
+  steps: string[]; ingredients: IngredientRow[];
+};
+export type IngredientRow = { amount: string; unit: string; name: string; ingredient_id: string | null; error?: string };
+
+const emptyValues: RecipeFormValues = { title: "", source_url: "", servings_base: 4, prep_min: null, cook_min: null, difficulty: null, tags: [], kid_friendly: false, is_experimental: false, steps: [""], ingredients: [{ amount: "", unit: "", name: "", ingredient_id: null }] };
+
+export function RezeptForm({ defaultValues, recipeId }: { defaultValues?: Partial<RecipeFormValues>; recipeId?: string }) {
+  const router = useRouter();
+  const [values, setValues] = useState<RecipeFormValues>({ ...emptyValues, ...defaultValues, steps: defaultValues?.steps?.length ? defaultValues.steps : emptyValues.steps, ingredients: defaultValues?.ingredients?.length ? defaultValues.ingredients : emptyValues.ingredients });
+  const [tagsText, setTagsText] = useState((defaultValues?.tags ?? []).join(", "));
+  const [saving, setSaving] = useState(false); const [formError, setFormError] = useState("");
+  const update = <K extends keyof RecipeFormValues>(key: K, value: RecipeFormValues[K]) => setValues((v) => ({ ...v, [key]: value }));
+  const updateIngredient = (index: number, change: Partial<IngredientRow>) => update("ingredients", values.ingredients.map((row, i) => i === index ? { ...row, ...change } : row));
+  // Ref statt values-Closure: verfolgt pro Zeile die zuletzt getippte Anfrage,
+  // damit eine spät eintreffende Server-Antwort eine schnellere Eingabe nicht
+  // überschreibt (values wäre hier zum Aufrufzeitpunkt eingefroren).
+  const latestQuery = useRef<Record<number, string>>({});
+  const searchIngredient = async (index: number, name: string) => {
+    latestQuery.current[index] = name;
+    updateIngredient(index, { name, ingredient_id: null, error: undefined });
+    if (!name.trim()) return;
+    const { data, error } = await createClient().from("ingredients").select("id,name").ilike("name", `%${name.replace(/[%_]/g, "\\$&")}%`).limit(8);
+    if (latestQuery.current[index] !== name) return;
+    if (error) { updateIngredient(index, { error: "Zutatensuche fehlgeschlagen." }); return; }
+    setIngredientOptions((options) => ({ ...options, [index]: data ?? [] }));
+    const exact = data?.find((item) => item.name.toLowerCase() === name.trim().toLowerCase());
+    updateIngredient(index, exact ? { ingredient_id: exact.id, name: exact.name } : { error: data?.length ? "Bitte eine Zutat aus den Treffern auswählen." : "Keine Zutat gefunden." });
+  };
+  const [ingredientOptions, setIngredientOptions] = useState<Record<number, { id: string; name: string }[]>>({});
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault(); setSaving(true); setFormError("");
+    const supabase = createClient(); const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) { router.push("/login"); return; }
+    const payload = { title: values.title.trim(), source_url: values.source_url.trim() || null, servings_base: Number(values.servings_base) || 4, prep_min: values.prep_min === null ? null : Number(values.prep_min), cook_min: values.cook_min === null ? null : Number(values.cook_min), difficulty: values.difficulty, tags: tagsText.split(",").map((tag) => tag.trim()).filter(Boolean), kid_friendly: values.kid_friendly, is_experimental: values.is_experimental };
+    if (!payload.title) { setFormError("Bitte einen Titel eingeben."); setSaving(false); return; }
+    const { data: recipe, error } = recipeId ? await supabase.from("recipes").update(payload).eq("id", recipeId).select("id").single() : await supabase.from("recipes").insert({ ...payload, user_id: userData.user.id }).select("id").single();
+    if (error || !recipe) { setFormError(error?.message ?? "Das Rezept konnte nicht gespeichert werden."); setSaving(false); return; }
+    if (recipeId) { await supabase.from("recipe_steps").delete().eq("recipe_id", recipe.id); await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipe.id); }
+    const steps = values.steps.map((text, i) => ({ recipe_id: recipe.id, step_no: i + 1, text: text.trim() })).filter((step) => step.text);
+    // Einen Durchgang über alle Zeilen, EIN setValues für die Fehler-Annotationen —
+    // sonst überschreibt bei mehreren gleichzeitig fehlerhaften Zeilen der letzte
+    // updateIngredient()-Aufruf die vorherigen (jeder liest aus demselben,
+    // zum Renderzeitpunkt eingefrorenen values.ingredients).
+    const annotatedIngredients: IngredientRow[] = [];
+    const ingredientRows: { recipe_id: string; ingredient_id: string; amount: number; unit: string }[] = [];
+    for (const row of values.ingredients) {
+      if (!row.ingredient_id || !row.amount || !row.unit) { annotatedIngredients.push(row); continue; }
+      const amount = Number(row.amount);
+      if (!Number.isFinite(amount)) { annotatedIngredients.push({ ...row, error: "Bitte eine gültige Menge eingeben." }); continue; }
+      try {
+        const converted = toBaseUnit({ amount, unit: row.unit });
+        ingredientRows.push({ recipe_id: recipe.id, ingredient_id: row.ingredient_id, amount: converted.amount, unit: converted.unit });
+        annotatedIngredients.push({ ...row, error: undefined });
+      } catch {
+        annotatedIngredients.push({ ...row, error: `Unbekannte Einheit: "${row.unit}"` });
+      }
+    }
+    update("ingredients", annotatedIngredients);
+    const stepError = steps.length ? (await supabase.from("recipe_steps").insert(steps)).error : null;
+    const ingredientError = ingredientRows.length ? (await supabase.from("recipe_ingredients").insert(ingredientRows)).error : null;
+    if (stepError || ingredientError) { setFormError(stepError?.message ?? ingredientError?.message ?? "Ein Teil des Rezepts konnte nicht gespeichert werden."); setSaving(false); return; }
+    router.push(`/rezepte/${recipe.id}`); router.refresh();
+  }
+  return <form onSubmit={save} className="space-y-6"><Card><CardHeader><CardTitle>Grunddaten</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2"><div className="space-y-2 sm:col-span-2"><Label htmlFor="title">Titel *</Label><Input id="title" required value={values.title} onChange={(e) => update("title", e.target.value)} /></div><div className="space-y-2"><Label htmlFor="source">Quelle (URL)</Label><Input id="source" type="url" value={values.source_url} onChange={(e) => update("source_url", e.target.value)} /></div><div className="space-y-2"><Label htmlFor="servings">Portionen</Label><Input id="servings" type="number" min="1" value={values.servings_base} onChange={(e) => update("servings_base", Number(e.target.value))} /></div><div className="space-y-2"><Label htmlFor="prep">Vorbereitung (Min.)</Label><Input id="prep" type="number" min="0" value={values.prep_min ?? ""} onChange={(e) => update("prep_min", e.target.value ? Number(e.target.value) : null)} /></div><div className="space-y-2"><Label htmlFor="cook">Kochen (Min.)</Label><Input id="cook" type="number" min="0" value={values.cook_min ?? ""} onChange={(e) => update("cook_min", e.target.value ? Number(e.target.value) : null)} /></div><div className="space-y-2"><Label htmlFor="difficulty">Schwierigkeit</Label><select id="difficulty" className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={values.difficulty ?? ""} onChange={(e) => update("difficulty", (e.target.value || null) as RecipeFormValues["difficulty"])}><option value="">Keine Angabe</option><option>einfach</option><option>mittel</option><option>schwer</option></select></div><div className="space-y-2"><Label htmlFor="tags">Tags (Komma-getrennt)</Label><Input id="tags" value={tagsText} onChange={(e) => setTagsText(e.target.value)} /></div><div className="flex gap-6 sm:col-span-2"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={values.kid_friendly} onChange={(e) => update("kid_friendly", e.target.checked)} /> Kinderfreundlich</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={values.is_experimental} onChange={(e) => update("is_experimental", e.target.checked)} /> Experimentell</label></div></CardContent></Card>
+    <Card><CardHeader><CardTitle>Zubereitung</CardTitle></CardHeader><CardContent className="space-y-3">{values.steps.map((step, index) => <div className="flex gap-2" key={index}><span className="pt-2 text-sm text-muted-foreground">{index + 1}.</span><Textarea value={step} onChange={(e) => update("steps", values.steps.map((s, i) => i === index ? e.target.value : s))} placeholder="Zubereitungsschritt" /><Button type="button" variant="outline" onClick={() => update("steps", values.steps.filter((_, i) => i !== index))} disabled={values.steps.length === 1}>Entfernen</Button>{index > 0 && <Button type="button" variant="outline" onClick={() => { const next = [...values.steps]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; update("steps", next); }}>↑</Button>}{index < values.steps.length - 1 && <Button type="button" variant="outline" onClick={() => { const next = [...values.steps]; [next[index], next[index + 1]] = [next[index + 1], next[index]]; update("steps", next); }}>↓</Button>}</div>)}<Button type="button" variant="outline" onClick={() => update("steps", [...values.steps, ""])}>+ Schritt</Button></CardContent></Card>
+    <Card><CardHeader><CardTitle>Zutaten</CardTitle></CardHeader><CardContent className="space-y-3">{values.ingredients.map((row, index) => <div className="rounded-lg border p-3" key={index}><div className="grid gap-2 sm:grid-cols-[7rem_7rem_1fr_auto]"><Input type="number" min="0" step="any" placeholder="Menge" value={row.amount} onChange={(e) => updateIngredient(index, { amount: e.target.value, error: undefined })} /><Input placeholder="Einheit (z. B. EL)" value={row.unit} onChange={(e) => updateIngredient(index, { unit: e.target.value, error: undefined })} /><div><Input placeholder="Zutat suchen" value={row.name} onChange={(e) => void searchIngredient(index, e.target.value)} list={`ingredients-${index}`} aria-invalid={!!row.error} /><datalist id={`ingredients-${index}`}>{(ingredientOptions[index] ?? []).map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</datalist></div><Button type="button" variant="outline" onClick={() => update("ingredients", values.ingredients.filter((_, i) => i !== index))}>Entfernen</Button></div>{row.error && <p className="mt-2 text-sm text-destructive">{row.error}</p>}{row.ingredient_id && <p className="mt-2 text-sm text-green-700">Zutat ausgewählt</p>}</div>)}<Button type="button" variant="outline" onClick={() => update("ingredients", [...values.ingredients, { amount: "", unit: "", name: "", ingredient_id: null }])}>+ Zutat</Button></CardContent></Card>
+    {formError && <p className="text-sm text-destructive">{formError}</p>}<Button type="submit" disabled={saving}>{saving ? "Wird gespeichert …" : recipeId ? "Änderungen speichern" : "Rezept anlegen"}</Button></form>;
+}

@@ -1,0 +1,9 @@
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/server";
+
+export default async function RezeptePage() {
+  const supabase = await createClient();
+  const { data: recipes, error } = await supabase.from("recipes").select("id,title,prep_min,cook_min,kid_friendly").order("title");
+  return <main className="mx-auto max-w-5xl space-y-6 px-6 py-8"><div className="flex items-center justify-between"><div><h1 className="text-3xl font-semibold">Meine Rezepte</h1><p className="text-muted-foreground">Deine persönliche Rezeptsammlung</p></div><Link className="inline-flex h-8 items-center rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground" href="/rezepte/neu">+ Neues Rezept</Link></div>{error && <p className="text-destructive">Rezepte konnten nicht geladen werden.</p>}{!recipes?.length && !error && <Card><CardContent className="py-10 text-center text-muted-foreground">Noch keine Rezepte vorhanden.</CardContent></Card>}<div className="grid gap-4 sm:grid-cols-2">{recipes?.map((recipe) => <Link href={`/rezepte/${recipe.id}`} key={recipe.id}><Card className="h-full transition-colors hover:bg-muted"><CardHeader><CardTitle>{recipe.title}</CardTitle></CardHeader><CardContent className="flex gap-3 text-sm text-muted-foreground"><span>{(recipe.prep_min ?? 0) + (recipe.cook_min ?? 0)} Min.</span>{recipe.kid_friendly && <span className="rounded-full bg-green-100 px-2 py-0.5 text-green-800">Kinderfreundlich</span>}</CardContent></Card></Link>)}</div></main>;
+}
