@@ -13,7 +13,7 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 ## Phase 1 — Rezepte
 - [x] Rezept-CRUD-UI *(→ Codex)*
 - [x] Zutaten-Parser Regex + Alias-Lookup
-- [ ] Haiku-Fallback + Alias-Rückschreibung
+- [x] Haiku-Fallback + Alias-Rückschreibung
 - [x] URL-Import mit JSON-LD *(→ Codex; Fetch läuft in Next.js statt Ingest, Phase 4 existiert noch nicht)*
 - [ ] Testset 20 Rezeptseiten, Trefferquote messen
 
