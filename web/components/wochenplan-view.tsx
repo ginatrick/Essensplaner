@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { weekStartIso, addWeeks, dateForDay, dayLabel, formatShortDate, formatWeekRange } from "@/lib/plan/week";
+import { isEffortHigh, isRepeatedWithin14Days, weekRuleSummary, type RuleEntry } from "@/lib/plan/rules";
 
 type RecipeSummary = {
   id: string;
@@ -18,7 +19,22 @@ type RecipeSummary = {
   image_path: string | null;
 };
 
-type Entry = { id: string; day: number; recipe: RecipeSummary };
+type Entry = { id: string; day: number; recipe: RecipeSummary; pinned: boolean };
+
+function toRuleEntry(e: Entry): RuleEntry {
+  return { day: e.day, recipe: e.recipe, pinned: e.pinned };
+}
+
+type EntryRow = { id: string; day: number; pinned: boolean | null; recipes: RecipeSummary[] | RecipeSummary | null };
+
+function mapEntries(rows: EntryRow[] | null): Entry[] {
+  return (rows ?? [])
+    .map((row) => {
+      const r = Array.isArray(row.recipes) ? row.recipes[0] : row.recipes;
+      return r ? { id: row.id, day: row.day, recipe: r, pinned: row.pinned ?? false } : null;
+    })
+    .filter((e): e is Entry => e !== null);
+}
 
 // Kleine deterministische Farbzuordnung für Tag-Pills, damit derselbe Tag immer
 // dieselbe Farbe bekommt, ohne feste Tag-Namen im Code zu verdrahten.
@@ -43,6 +59,7 @@ export function WochenplanView() {
   const [weekStart, setWeekStart] = useState(() => weekStartIso());
   const [planId, setPlanId] = useState<string | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [previousWeekEntries, setPreviousWeekEntries] = useState<RuleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editingDay, setEditingDay] = useState<number | null>(null);
@@ -78,19 +95,30 @@ export function WochenplanView() {
 
       const { data: rows, error: entriesError } = await supabase
         .from("meal_plan_entries")
-        .select("id, day, recipes(id, title, prep_min, cook_min, tags, image_path)")
+        .select("id, day, pinned, recipes(id, title, prep_min, cook_min, tags, image_path)")
         .eq("plan_id", plan.id);
       if (cancelled) return;
       if (entriesError) { setError("Wochenplan konnte nicht geladen werden."); setLoading(false); return; }
 
-      const loaded: Entry[] = (rows ?? [])
-        .map((row) => {
-          const recipe = (row.recipes as unknown as RecipeSummary[] | RecipeSummary | null);
-          const r = Array.isArray(recipe) ? recipe[0] : recipe;
-          return r ? { id: row.id as string, day: row.day as number, recipe: r } : null;
-        })
-        .filter((e): e is Entry => e !== null);
-      setEntries(loaded);
+      setEntries(mapEntries(rows));
+
+      // Für den 14-Tage-Regel-Check: Einträge der Vorwoche nur lesend nachladen.
+      const { data: prevPlan } = await supabase
+        .from("meal_plans")
+        .select("id")
+        .eq("week_start", addWeeks(weekStart, -1))
+        .eq("status", "draft")
+        .maybeSingle();
+      if (prevPlan) {
+        const { data: prevRows } = await supabase
+          .from("meal_plan_entries")
+          .select("id, day, pinned, recipes(id, title, prep_min, cook_min, tags, image_path)")
+          .eq("plan_id", prevPlan.id);
+        if (!cancelled) setPreviousWeekEntries(mapEntries(prevRows).map(toRuleEntry));
+      } else if (!cancelled) {
+        setPreviousWeekEntries([]);
+      }
+
       setLoading(false);
     }
     load();
@@ -119,16 +147,9 @@ export function WochenplanView() {
     setWeekStart((w) => w);
     const { data: rows } = await supabase
       .from("meal_plan_entries")
-      .select("id, day, recipes(id, title, prep_min, cook_min, tags, image_path)")
+      .select("id, day, pinned, recipes(id, title, prep_min, cook_min, tags, image_path)")
       .eq("plan_id", planId);
-    const loaded: Entry[] = (rows ?? [])
-      .map((row) => {
-        const recipe = (row.recipes as unknown as RecipeSummary[] | RecipeSummary | null);
-        const r = Array.isArray(recipe) ? recipe[0] : recipe;
-        return r ? { id: row.id as string, day: row.day as number, recipe: r } : null;
-      })
-      .filter((e): e is Entry => e !== null);
-    setEntries(loaded);
+    setEntries(mapEntries(rows));
   }
 
   async function removeEntry(entryId: string) {
@@ -137,6 +158,8 @@ export function WochenplanView() {
   }
 
   const filledCount = entries.length;
+  const ruleEntries = useMemo(() => entries.map(toRuleEntry), [entries]);
+  const { missingVegetarian, missingFish } = weekRuleSummary(ruleEntries);
 
   return (
     <div className="space-y-6">
@@ -162,11 +185,22 @@ export function WochenplanView() {
         </CardHeader>
         <CardContent className="space-y-3">
           {error && <p className="text-sm text-destructive">{error}</p>}
+          {(missingVegetarian || missingFish) && (
+            <div className="flex flex-wrap gap-2 text-xs">
+              {missingVegetarian && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">Kein vegetarischer Tag diese Woche</span>
+              )}
+              {missingFish && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">Kein Fischgericht diese Woche</span>
+              )}
+            </div>
+          )}
           {loading ? (
             <p className="text-sm text-muted-foreground">Lädt …</p>
           ) : (
             Array.from({ length: 7 }, (_, day) => {
               const entry = entries.find((e) => e.day === day);
+              const ruleEntry = ruleEntries.find((e) => e.day === day);
               const date = dateForDay(weekStart, day);
               const isEditing = editingDay === day;
 
@@ -197,6 +231,12 @@ export function WochenplanView() {
                             </span>
                             {entry.recipe.tags?.[0] && (
                               <span className={`rounded-full px-2 py-0.5 ${tagColor(entry.recipe.tags[0])}`}>{entry.recipe.tags[0]}</span>
+                            )}
+                            {isEffortHigh(entry.recipe) && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">Aufwand hoch</span>
+                            )}
+                            {ruleEntry && isRepeatedWithin14Days(ruleEntry, ruleEntries, previousWeekEntries) && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">Schon in den letzten 14 Tagen</span>
                             )}
                           </div>
                         </Link>
