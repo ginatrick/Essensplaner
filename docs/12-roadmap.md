@@ -8,7 +8,7 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 - [x] Schema-Migration 001 (Stammdaten + Rezepte) inkl. RLS
 - [x] Seed: `departments`, Top-200 `ingredients` mit Nährwerten *(→ Codex)*
 - [x] Unit-Konversionstabelle + Tests *(→ Codex, wegen Schreibrechte-Problem selbst umgesetzt)*
-- [ ] Vercel-Deployment + Env-Handling
+- [x] Vercel-Deployment + Env-Handling
 
 ## Phase 1 — Rezepte
 - [ ] Rezept-CRUD-UI *(→ Codex)*
