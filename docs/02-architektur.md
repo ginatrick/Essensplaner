@@ -8,7 +8,7 @@
 └──────────┬──────────────────┘
            │ supabase-js (RLS, anon key)
 ┌──────────▼──────────────────┐
-│  Supabase (EU-Central)      │   Postgres · Auth · Storage · Edge Functions
+│  Supabase (EU, eu-north-1)  │   Postgres · Auth · Storage · Edge Functions
 │  RLS auf allen Tabellen     │   Edge Fn: recipe-import · plan-suggest
 │  pg_cron Jobs               │            price-compare · nightly-aggregate
 └──────────┬──────────────────┘

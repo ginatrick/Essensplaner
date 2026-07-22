@@ -25,7 +25,7 @@
 ## DSGVO
 - Es werden Daten über Kinder verarbeitet (Alter, Ernährung) → Datenminimierung:
   nur Alter + Aktivitätslevel, keine Gesundheitsdaten, keine Namen wenn vermeidbar.
-- Single-User-System, Daten bleiben in EU-Region (Supabase EU-Central, Hetzner DE).
+- Single-User-System, Daten bleiben in EU-Region (Supabase eu-north-1, Ingest lokal in Deutschland).
 - Kein Tracking, keine Drittanbieter-Analytics.
 - LLM-Calls: keine Klarnamen der Kinder an die API senden.
 
