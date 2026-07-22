@@ -7,7 +7,7 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test lib/units/*.test.ts"
+    "test": "node --test lib/units/*.test.ts lib/recipes/*.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

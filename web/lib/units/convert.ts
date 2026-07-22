@@ -48,6 +48,12 @@ const UNIT_ALIASES: Record<string, ConversionRule> = {
   packungen: { kind: "stk" },
 };
 
+// Wiederverwendet vom Zutaten-Parser (web/lib/recipes), damit Einheiten-Erkennung
+// nur an einer Stelle gepflegt wird.
+export function isKnownUnitWord(word: string): boolean {
+  return word.trim().toLowerCase() in UNIT_ALIASES;
+}
+
 export function toBaseUnit(input: {
   amount: number;
   unit: string;
