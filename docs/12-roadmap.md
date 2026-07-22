@@ -7,7 +7,7 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 - [ ] Supabase-Projekt EU-Central, Magic Link Auth
 - [x] Schema-Migration 001 (Stammdaten + Rezepte) inkl. RLS
 - [x] Seed: `departments`, Top-200 `ingredients` mit Nährwerten *(→ Codex)*
-- [ ] Unit-Konversionstabelle + Tests *(→ Codex)*
+- [x] Unit-Konversionstabelle + Tests *(→ Codex, wegen Schreibrechte-Problem selbst umgesetzt)*
 - [ ] Vercel-Deployment + Env-Handling
 
 ## Phase 1 — Rezepte
