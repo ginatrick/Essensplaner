@@ -31,4 +31,4 @@ Packungsrundung erst im Einkaufsplan, nie im Rezept.
       (gemessen: 91,5 % — 236/258 Zutaten über 20 echte Rezeptseiten,
       `web/scripts/measure-import-hitrate.mjs`, 2026-07-22)
 - [x] Alias-Tabelle wächst automatisch, Trefferquote messbar
-- [ ] Duplikaterkennung per Titel-Fuzzy + Zutaten-Overlap
+- [x] Duplikaterkennung per Titel-Fuzzy + Zutaten-Overlap
