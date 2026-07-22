@@ -11,7 +11,7 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 - [x] Vercel-Deployment + Env-Handling
 
 ## Phase 1 — Rezepte
-- [ ] Rezept-CRUD-UI *(→ Codex)*
+- [x] Rezept-CRUD-UI *(→ Codex)*
 - [x] Zutaten-Parser Regex + Alias-Lookup
 - [ ] Haiku-Fallback + Alias-Rückschreibung
 - [ ] URL-Import mit JSON-LD *(→ Codex)*
