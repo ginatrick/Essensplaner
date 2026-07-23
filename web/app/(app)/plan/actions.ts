@@ -22,10 +22,10 @@ export async function generateWeekSuggestion(): Promise<SuggestedWeekResult | { 
   if (!userData.user) return { error: "Nicht angemeldet." };
 
   const [{ data: recipes }, { data: ingredientRows }, { data: tasteRows }, { data: statsRows }, { data: memberRows }] = await Promise.all([
-    supabase.from("recipes").select("id, title, tags, prep_min, cook_min, is_experimental"),
+    supabase.from("recipes").select("id, title, tags, prep_min, cook_min, is_experimental, servings_base"),
     supabase
       .from("recipe_ingredients")
-      .select("recipe_id, ingredient_id, amount, unit, is_optional, ingredients(season_months, iron_mg_100, calcium_mg_100)"),
+      .select("recipe_id, ingredient_id, amount, unit, is_optional, ingredients(season_months, protein_100, fiber_100, iron_mg_100, calcium_mg_100, piece_weight_g, density_g_ml)"),
     supabase.from("taste_profile").select("ingredient_id, score"),
     supabase.from("recipe_stats").select("recipe_id, last_planned"),
     supabase.from("household_members").select("training_days"),
@@ -46,7 +46,7 @@ export async function generateWeekSuggestion(): Promise<SuggestedWeekResult | { 
     const rows = byRecipe.get(r.id) ?? [];
     const ing = (row: (typeof rows)[number]) => (Array.isArray(row.ingredients) ? row.ingredients[0] : row.ingredients);
 
-    const nutrients = rows.map((row) => ({ iron_mg_100: ing(row)?.iron_mg_100 ?? null, calcium_mg_100: ing(row)?.calcium_mg_100 ?? null }));
+    const nutritionIngredients = rows.map((row) => ({ amount: row.amount, unit: row.unit, ...(ing(row) ?? {}) }));
     const scores = rows.map((row) => tasteByIngredient.get(row.ingredient_id)).filter((s): s is number => s != null);
     const tasteScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
 
@@ -64,7 +64,8 @@ export async function generateWeekSuggestion(): Promise<SuggestedWeekResult | { 
       tasteScore,
       mainIngredientId: pickMainIngredient(rows.map((row) => ({ ingredient_id: row.ingredient_id, amount: row.amount, unit: row.unit, is_optional: row.is_optional }))),
       inSeason,
-      ingredientNutrients: nutrients,
+      servings: r.servings_base ?? 4,
+      ingredients: nutritionIngredients,
     };
   });
 
@@ -76,7 +77,7 @@ export async function generateWeekSuggestion(): Promise<SuggestedWeekResult | { 
     return { error: "Kein passendes Rezept gefunden. Mehr Rezepte anlegen oder es später erneut versuchen." };
   }
 
-  const ampel = evaluateWeek(slots.map((s) => ({ day: s.day, tags: s.recipe.tags, ingredientNutrients: s.recipe.ingredientNutrients })));
+  const ampel = evaluateWeek(slots.map((s) => ({ day: s.day, tags: s.recipe.tags, servings: s.recipe.servings, ingredients: s.recipe.ingredients })));
   const improvedCriteria = ampel.criteria.filter((c) => c.ampel !== "rot").map((c) => c.label);
   const explorationTitles = slots.filter((s) => s.isExploration).map((s) => s.recipe.title);
   const favoriteTitles = candidates

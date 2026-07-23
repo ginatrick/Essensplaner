@@ -159,23 +159,30 @@ export function WochenplanView() {
     async function loadNutrition() {
       if (entries.length === 0) { setNutritionAmpel(null); return; }
       const recipeIds = [...new Set(entries.map((e) => e.recipe.id))];
-      const { data: ingredientRows } = await supabase
-        .from("recipe_ingredients")
-        .select("recipe_id, ingredients(iron_mg_100, calcium_mg_100)")
-        .in("recipe_id", recipeIds);
+      // Mengen mitladen: die Ampel rechnet echte Nährstoffmengen je Portion,
+      // nicht mehr nur "enthält eine Zutat mit viel Eisen".
+      const [{ data: ingredientRows }, { data: recipeRows }] = await Promise.all([
+        supabase
+          .from("recipe_ingredients")
+          .select("recipe_id, amount, unit, ingredients(protein_100, fiber_100, iron_mg_100, calcium_mg_100, piece_weight_g, density_g_ml)")
+          .in("recipe_id", recipeIds),
+        supabase.from("recipes").select("id, servings_base").in("id", recipeIds),
+      ]);
       if (cancelled) return;
 
-      const nutrientsByRecipe = new Map<string, { iron_mg_100: number | null; calcium_mg_100: number | null }[]>();
+      const servingsByRecipe = new Map((recipeRows ?? []).map((r) => [r.id, r.servings_base as number]));
+      const ingredientsByRecipe = new Map<string, NutritionEntry["ingredients"]>();
       for (const row of ingredientRows ?? []) {
         const ing = Array.isArray(row.ingredients) ? row.ingredients[0] : row.ingredients;
         if (!ing) continue;
-        if (!nutrientsByRecipe.has(row.recipe_id)) nutrientsByRecipe.set(row.recipe_id, []);
-        nutrientsByRecipe.get(row.recipe_id)!.push(ing);
+        if (!ingredientsByRecipe.has(row.recipe_id)) ingredientsByRecipe.set(row.recipe_id, []);
+        ingredientsByRecipe.get(row.recipe_id)!.push({ amount: row.amount, unit: row.unit, ...ing });
       }
       const nutritionEntries: NutritionEntry[] = entries.map((e) => ({
         day: e.day,
         tags: e.recipe.tags,
-        ingredientNutrients: nutrientsByRecipe.get(e.recipe.id) ?? [],
+        servings: servingsByRecipe.get(e.recipe.id) ?? 4,
+        ingredients: ingredientsByRecipe.get(e.recipe.id) ?? [],
       }));
       setNutritionAmpel(evaluateWeek(nutritionEntries));
     }
@@ -444,7 +451,12 @@ export function WochenplanView() {
                         }`}
                       />
                       <span>
-                        <span className="font-medium">{c.label}</span> ({c.count})
+                        <span className="font-medium">{c.label}</span>{" "}
+                        <span className="text-muted-foreground">
+                          {c.averagePerPortion !== undefined
+                            ? `an ${c.count} von ${entries.length} Tagen · Ø ${c.averagePerPortion} ${c.unit ?? ""} pro Portion`
+                            : `(${c.count})`}
+                        </span>
                         {c.suggestion && <span className="block text-muted-foreground">{c.suggestion}</span>}
                       </span>
                     </li>

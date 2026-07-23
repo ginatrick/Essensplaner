@@ -6,7 +6,7 @@ import type { CandidateRecipe } from "./types.ts";
 function recipe(overrides: Partial<CandidateRecipe>): CandidateRecipe {
   return {
     id: "r1", title: "Test", tags: [], prep_min: 10, cook_min: 10, is_experimental: false,
-    lastPlanned: null, tasteScore: null, mainIngredientId: null, inSeason: true, ingredientNutrients: [],
+    lastPlanned: null, tasteScore: null, mainIngredientId: null, inSeason: true, servings: 4, ingredients: [],
     ...overrides,
   };
 }

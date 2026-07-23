@@ -4,7 +4,9 @@ Preise: `integer` in **Cent**. Mengen: `numeric` in **Basiseinheit** (g/ml/stk).
 
 ## Stammdaten
 **ingredients** — kanonische Zutaten
-`id · name · slug(uniq) · base_unit · department_id · density_g_ml · kcal_100 · protein_100 · carbs_100 · fat_100 · fiber_100 · iron_mg_100 · calcium_mg_100 · season_months int[] · tags text[] · pack_size numeric(nullable) · pack_unit(nullable) · rewe_search_term(nullable)`
+`id · name · slug(uniq) · base_unit · department_id · density_g_ml · piece_weight_g(nullable) · kcal_100 · protein_100 · carbs_100 · fat_100 · fiber_100 · iron_mg_100 · calcium_mg_100 · season_months int[] · tags text[] · pack_size numeric(nullable) · pack_unit(nullable) · rewe_search_term(nullable)`
+
+`piece_weight_g`: mittleres Stückgewicht des essbaren Anteils, geschätzt. Nur nötig, um bei stückweisen Mengen ("2 Eier") auf Gramm zu kommen — Nährwerte hängen an 100 g. Fehlt der Wert, geht die Zeile mit 0 in die Wochen-Ampel ein (siehe `docs/09-modul-ernaehrung.md`).
 
 `density_g_ml`: nötig, sobald eine Volumen-Einheit auf eine Zutat trifft, die in `g` geführt wird — in der Praxis nur bei Löffelangaben ("1 TL Salz" → 5 ml → g). `toIngredientBaseUnit()` in `web/lib/units/convert.ts` gleicht das an. Fehlt der Wert, greift eine Schüttdichte pro Abteilung (Backwaren 0.55 für Mehl, Trockensortiment 0.5 für Gewürze/Zucker/Nüsse), sonst 1 ml = 1 g. Ein gepflegtes `density_g_ml` hat immer Vorrang.
 
