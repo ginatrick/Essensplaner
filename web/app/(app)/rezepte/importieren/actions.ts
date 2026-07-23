@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-type FormIngredient = { amount: string; unit: string; name: string; ingredient_id: string | null; error?: string };
+type FormIngredient = { amount: string; unit: string; name: string; note: string | null; ingredient_id: string | null; error?: string };
 export type ImportedRecipeDraft = Omit<RawRecipeDraft, "ingredients"> & { ingredients: FormIngredient[] };
 export type ImportState = { draft?: ImportedRecipeDraft; error?: string };
 
@@ -37,9 +37,9 @@ export async function importRecipe(_previous: ImportState, formData: FormData): 
         // Alias exakt/Fuzzy und bei Miss Haiku-Fallback (nur im automatisierten
         // Import-Pfad, nicht im manuellen Formular — Kostengrund docs/11).
         const ingredientId = await resolveWithHaikuFallback(supabase, anthropic, parsed.name);
-        return { amount: String(parsed.amount), unit: parsed.unit ?? "", name: parsed.name, ingredient_id: ingredientId, ...(ingredientId ? {} : { error: "Keine Zutat gefunden." }) };
+        return { amount: String(parsed.amount), unit: parsed.unit ?? "", name: parsed.name, note: parsed.note, ingredient_id: ingredientId, ...(ingredientId ? {} : { error: "Keine Zutat gefunden." }) };
       } catch {
-        return { amount: String(parsed.amount), unit: parsed.unit ?? "", name: parsed.name, ingredient_id: null, error: "Zutatensuche fehlgeschlagen." };
+        return { amount: String(parsed.amount), unit: parsed.unit ?? "", name: parsed.name, note: parsed.note, ingredient_id: null, error: "Zutatensuche fehlgeschlagen." };
       }
     }));
     return { draft: { ...raw, source_url: input, ingredients } };

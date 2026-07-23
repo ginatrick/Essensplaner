@@ -21,7 +21,12 @@ export async function resolveWithHaikuFallback(
   const direct = await lookupIngredientAlias(supabase, trimmed);
   if (direct) return direct.ingredientId;
 
-  const { data, error } = await supabase.from("ingredients").select("id, name");
+  // Explizites Limit: Supabase/PostgREST deckelt Abfragen ohne .limit() auf
+  // standardmäßig 1000 Zeilen. Bei > 1000 ingredients (aktuell 1001) würde
+  // sonst in unbestimmter Reihenfolge abgeschnitten — Haiku bekäme nicht mal
+  // die volle Liste zu sehen und könnte selbst einen exakten Namen wie "Mais"
+  // verpassen, falls die Zeile außerhalb des Caps liegt.
+  const { data, error } = await supabase.from("ingredients").select("id, name").limit(5000);
   if (error) throw error;
   const known: { id: string; name: string }[] = data ?? [];
   if (known.length === 0) return null;

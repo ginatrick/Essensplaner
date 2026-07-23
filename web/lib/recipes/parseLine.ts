@@ -4,6 +4,7 @@ export type ParsedIngredientLine = {
   amount: number;
   unit: string | null;
   name: string;
+  note: string | null;
 };
 
 const LEADING_AMOUNT = /^(\d+(?:[.,]\d+)?)\s*/;
@@ -11,11 +12,20 @@ const FIRST_WORD = /^(\S+)\s*(.*)$/;
 // Klammer-Zusätze wie "(à 140 g Abtropfgewicht)", "(gehackt)" sind
 // Verpackungs-/Zubereitungshinweise, kein Teil des Zutatennamens — würden die
 // Alias-/Fuzzy-Suche sonst leer laufen lassen (sucht nach dem ganzen Text
-// inkl. Klammer statt nach "Mais").
-const PARENTHETICAL = /\s*\([^)]*\)/g;
+// inkl. Klammer statt nach "Mais"). Der Inhalt wird trotzdem als note
+// aufgehoben statt verworfen (recipe_ingredients.note).
+const PARENTHETICAL = /\s*\(([^)]*)\)/g;
 
-function stripParenthetical(value: string): string {
-  return value.replace(PARENTHETICAL, "").replace(/\s+/g, " ").trim();
+function extractParenthetical(value: string): { name: string; note: string | null } {
+  const notes: string[] = [];
+  const name = value
+    .replace(PARENTHETICAL, (_match, inner: string) => {
+      notes.push(inner.trim());
+      return "";
+    })
+    .replace(/\s+/g, " ")
+    .trim();
+  return { name, note: notes.length ? notes.join("; ") : null };
 }
 
 // Regex-Split einer freien Zutatenzeile nach docs/05-modul-rezepte.md Schritt 1:
@@ -27,7 +37,7 @@ export function parseIngredientLine(text: string): ParsedIngredientLine {
   if (!amountMatch) {
     // ponytail: keine Menge erkannt (z.B. "Salz nach Geschmack") → amount=1 als
     // neutraler Default, kein Raten der eigentlichen Menge.
-    return { amount: 1, unit: null, name: stripParenthetical(trimmed) };
+    return { amount: 1, unit: null, ...extractParenthetical(trimmed) };
   }
 
   const amount = parseFloat(amountMatch[1].replace(",", "."));
@@ -35,13 +45,13 @@ export function parseIngredientLine(text: string): ParsedIngredientLine {
 
   const wordMatch = remainder.match(FIRST_WORD);
   if (!wordMatch) {
-    return { amount, unit: null, name: stripParenthetical(remainder) };
+    return { amount, unit: null, ...extractParenthetical(remainder) };
   }
 
   const [, firstWord, rest] = wordMatch;
   if (isKnownUnitWord(firstWord)) {
-    return { amount, unit: firstWord, name: stripParenthetical(rest) };
+    return { amount, unit: firstWord, ...extractParenthetical(rest) };
   }
 
-  return { amount, unit: null, name: stripParenthetical(remainder) };
+  return { amount, unit: null, ...extractParenthetical(remainder) };
 }

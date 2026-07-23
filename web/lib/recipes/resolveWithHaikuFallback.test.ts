@@ -16,8 +16,12 @@ function makeFakeSupabase(options: {
     from(table: string) {
       if (table === "ingredients") {
         return {
-          async select(_cols: string) {
-            return { data: options.knownIngredients ?? [], error: null };
+          select(_cols: string) {
+            return {
+              async limit(_n: number) {
+                return { data: options.knownIngredients ?? [], error: null };
+              },
+            };
           },
         };
       }

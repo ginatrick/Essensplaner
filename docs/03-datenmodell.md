@@ -19,7 +19,7 @@ Preise: `integer` in **Cent**. Mengen: `numeric` in **Basiseinheit** (g/ml/stk).
 ## Rezepte
 **recipes** `id · user_id · title · source_url · servings_base · prep_min · cook_min · difficulty · tags[] · kid_friendly · is_experimental · image_path`
 **recipe_ingredients** `id · recipe_id · ingredient_id · amount · unit · note · is_optional`
-**recipe_ingredient_drafts** `id · recipe_id · raw_name · amount(text) · unit(text)` — Zutatenzeilen ohne Treffer beim Speichern (Bugfix: gingen vorher beim nächsten Bearbeiten verloren). `ingredient_id` bleibt in `recipe_ingredients` bewusst NOT NULL, damit Aggregation/Optimizer/Ampel/Vorschlags-Engine sich weiter darauf verlassen können, jede Zeile dort ist einkaufbar — Entwürfe sind rein zur Anzeige/zum Weiterbearbeiten, nehmen an keiner Berechnung teil.
+**recipe_ingredient_drafts** `id · recipe_id · raw_name · amount(text) · unit(text) · note` — Zutatenzeilen ohne Treffer beim Speichern (Bugfix: gingen vorher beim nächsten Bearbeiten verloren). `ingredient_id` bleibt in `recipe_ingredients` bewusst NOT NULL, damit Aggregation/Optimizer/Ampel/Vorschlags-Engine sich weiter darauf verlassen können, jede Zeile dort ist einkaufbar — Entwürfe sind rein zur Anzeige/zum Weiterbearbeiten, nehmen an keiner Berechnung teil. `note` hält Klammer-Zusätze aus der Zutatenzeile (z. B. "à 140 g Abtropfgewicht"), die der Parser aus dem Namen entfernt, damit die Info nicht verloren geht — analog zu `recipe_ingredients.note`.
 **recipe_steps** `id · recipe_id · step_no · text`
 
 ## Planung

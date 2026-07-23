@@ -7,6 +7,7 @@ test("Menge + angehängte Einheit ohne Leerzeichen", () => {
     amount: 500,
     unit: "g",
     name: "Rinderhack",
+    note: null,
   });
 });
 
@@ -15,6 +16,7 @@ test("Menge + Einheit mit Leerzeichen", () => {
     amount: 2,
     unit: "EL",
     name: "Olivenöl",
+    note: null,
   });
 });
 
@@ -23,6 +25,7 @@ test("Stückgut-Einheit (Bund) mit mehrwortigem Namen", () => {
     amount: 1,
     unit: "Bund",
     name: "glatte Petersilie",
+    note: null,
   });
 });
 
@@ -31,6 +34,7 @@ test("Keine erkennbare Einheit → unit=null, ganzer Rest ist Name", () => {
     amount: 3,
     unit: null,
     name: "Eier",
+    note: null,
   });
 });
 
@@ -39,6 +43,7 @@ test("Dezimalkomma wird zu Punkt normalisiert", () => {
     amount: 1.5,
     unit: "l",
     name: "Milch",
+    note: null,
   });
 });
 
@@ -47,6 +52,7 @@ test("Keine führende Menge → amount=1, unit=null, Text unverändert", () => {
     amount: 1,
     unit: null,
     name: "Salz nach Geschmack",
+    note: null,
   });
 });
 
@@ -55,14 +61,16 @@ test("Trimmt Whitespace am Rand", () => {
     amount: 2,
     unit: "TL",
     name: "Zucker",
+    note: null,
   });
 });
 
-test("Klammer-Zusatz (Verpackungs-/Zubereitungshinweis) wird aus dem Namen entfernt", () => {
+test("Klammer-Zusatz (Verpackungs-/Zubereitungshinweis) wird aus dem Namen entfernt und als note aufgehoben", () => {
   assert.deepEqual(parseIngredientLine("1 Dose Mais (à 140 g Abtropfgewicht)"), {
     amount: 1,
     unit: "Dose",
     name: "Mais",
+    note: "à 140 g Abtropfgewicht",
   });
 });
 
@@ -71,6 +79,7 @@ test("Klammer-Zusatz ohne erkannte Einheit", () => {
     amount: 2,
     unit: null,
     name: "Zwiebeln",
+    note: "fein gewürfelt",
   });
 });
 
@@ -79,5 +88,15 @@ test("Klammer-Zusatz ohne führende Menge", () => {
     amount: 1,
     unit: null,
     name: "Salz",
+    note: "nach Geschmack",
+  });
+});
+
+test("Mehrere Klammer-Zusätze werden zusammengeführt", () => {
+  assert.deepEqual(parseIngredientLine("1 Dose Mais (à 140 g) (Abtropfgewicht)"), {
+    amount: 1,
+    unit: "Dose",
+    name: "Mais",
+    note: "à 140 g; Abtropfgewicht",
   });
 });
