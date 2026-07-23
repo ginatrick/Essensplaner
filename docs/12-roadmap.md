@@ -34,7 +34,7 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 ## Phase 4 — Angebote & Ingest
 - [x] FastAPI-Grundgerüst lokal, Shared-Secret-Auth *(`ingest/`, `GET /health` offen, alles andere hinter `X-Ingest-Secret`; Cloudflare Tunnel manuell einzurichten, Anleitung in `ingest/README.md`)*
 - [x] `stores` manuell pflegen (15–25 Märkte) + OSRM-Distanzen *(20 Filialen: Edeka, Norma, Lidl, Aldi, Rewe, Netto, Kaufland im 15-km-Umkreis um 98587 Steinbach-Hallenberg; Koordinaten aus OSM/Overpass, distance_km/drive_min per öffentlichem OSRM-Server einmalig berechnet und fest eingetragen — kein Live-Redeploy bei Straßenänderungen)*
-- [ ] REWE-Preisabfrage *(→ Codex, klarer Kontrakt)*
+- [ ] REWE-Preisabfrage *(→ Codex, Kontrakt fertig: `codex/005-rewe-preisabfrage.md` — Web-Shop-API funktioniert unauthentifiziert, `serviceTypes=PICKUP` + `market`-Param nötig, live gegen Markt Schmalkalden verifiziert)*
 - [ ] Prospekt-PDF-Pipeline mit Haiku *(→ Codex pro Kette)*
 - [ ] Matching + Confidence + Review-UI
 - [ ] Cron Mo/Mi + advisory lock

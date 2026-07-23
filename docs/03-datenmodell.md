@@ -13,7 +13,8 @@ Preise: `integer` in **Cent**. Mengen: `numeric` in **Basiseinheit** (g/ml/stk).
 `Obst & Gemüse · Backwaren · Fleisch/Wurst · Käse/Theke · Kühlregal · Tiefkühl · Trockensortiment · Konserven · Getränke · Drogerie`
 
 **stores**
-`id · chain · name · lat · lng · address · distance_km · drive_min · department_layout jsonb`
+`id · chain · name · lat · lng · address · distance_km · drive_min · department_layout jsonb · rewe_market_id text(nullable)`
+— `rewe_market_id` ist die REWE-eigene Markt-ID ("wwIdent", nicht `id`), nur bei `chain='REWE'` gesetzt
 
 ## Rezepte
 **recipes** `id · user_id · title · source_url · servings_base · prep_min · cook_min · difficulty · tags[] · kid_friendly · is_experimental · image_path`
