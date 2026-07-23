@@ -6,7 +6,8 @@ from pathlib import Path
 import httpx
 
 from .discover import find_current_kaufland_pdf_urls, find_current_lidl_pdf_url
-from .extract import RawOffer, extract_offers_from_pdf
+from .._types import RawOffer
+from .extract import extract_offers_from_pdf
 
 
 def _download(pdf_url: str) -> str:

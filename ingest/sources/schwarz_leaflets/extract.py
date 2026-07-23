@@ -3,25 +3,15 @@
 import json
 import os
 import re
-from typing import TypedDict
 
 import pdfplumber
+
+from .._types import RawOffer
 
 try:
     from anthropic import Anthropic
 except ImportError:  # Die Tests injizieren den Client; Produktion installiert anthropic.
     Anthropic = None  # type: ignore[assignment,misc]
-
-
-class RawOffer(TypedDict):
-    title: str
-    brand: str | None
-    amount: int | float | None
-    unit: str | None
-    price_cent: int
-    valid_from: str | None
-    valid_to: str | None
-    source_chain: str
 
 
 MODEL = "claude-haiku-4-5-20251001"

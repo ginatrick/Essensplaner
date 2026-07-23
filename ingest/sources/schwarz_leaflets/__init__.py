@@ -1,5 +1,5 @@
 """Prospekt-Pipeline der Schwarz-Gruppe für Lidl und Kaufland."""
 
-from .extract import RawOffer
+from .._types import RawOffer
 
 __all__ = ["RawOffer"]
