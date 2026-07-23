@@ -7,7 +7,7 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test lib/units/*.test.ts lib/recipes/*.test.ts lib/plan/*.test.ts"
+    "test": "node --test lib/units/*.test.ts lib/recipes/*.test.ts lib/plan/*.test.ts lib/optimizer/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.113.0",

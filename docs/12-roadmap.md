@@ -41,8 +41,8 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 - [x] `price_history` + Plausibilitätsfilter *(Tabelle + RPC `is_plausible_offer` nach der Formel aus docs/06: `price_cent < median(90 Tage) × 0.9`; bei < 3 Preispunkten gilt ein Angebot als plausibel, sonst würde jedes neue Angebot mangels Historie fälschlich abgelehnt. Wird beim Schreiben von Angeboten/REWE-Preisen automatisch befüllt — noch kein UI-Preisverlauf-Chart, das ist Teil der Definition of Done fürs Gesamtmodul, nicht dieser Schritt)*
 
 ## Phase 5 — Optimizer & REWE-Vergleich
-- [ ] Varianten A/B/C/D berechnen
-- [ ] Routen-/Fahrtkosten (Brute Force ≤ 4 Märkte)
+- [x] Varianten A/B/C/D berechnen *(`web/lib/optimizer/`, reine TS-Logik, 19 Tests via `npm test`. Preisvergleich als Preis-pro-benötigter-Menge, keine Pack-Rundung pro Angebot — das ist ein Bin-Packing-Problem, das für einen Kosten-VERGLEICH nicht nötig ist, siehe pricing.ts)*
+- [x] Routen-/Fahrtkosten (Brute Force ≤ 4 Märkte) *(route.ts: echte Haushalt→Markt-Distanz aus `stores`, Haversine-Näherung für Markt-zu-Markt-Strecken statt echter OSRM-Distanzmatrix — bewusste Vereinfachung, siehe Kommentar im Code)*
 - [ ] Vergleichstabelle + Empfehlungslogik
 - [ ] Settings: €/km, €/h, Toleranzen
 - [ ] Begründung pro Position

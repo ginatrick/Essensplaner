@@ -1,4 +1,5 @@
-import { describe, expect, test } from "vitest";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import { aggregateIngredients, groupByDepartment, subtractPantry, roundToPackages } from "./aggregate.ts";
 
 describe("aggregateIngredients", () => {
@@ -7,14 +8,14 @@ describe("aggregateIngredients", () => {
       { servings: 4, recipe: { servings_base: 4 }, ingredients: [{ ingredient_id: "tomate", amount: 200, unit: "g" }] },
       { servings: 2, recipe: { servings_base: 4 }, ingredients: [{ ingredient_id: "tomate", amount: 200, unit: "g" }] },
     ]);
-    expect(result).toEqual([{ ingredient_id: "tomate", amount: 300, unit: "g" }]);
+    assert.deepEqual(result, [{ ingredient_id: "tomate", amount: 300, unit: "g" }]);
   });
 
   test("hält verschiedene Zutaten getrennt", () => {
     const result = aggregateIngredients([
       { servings: 4, recipe: { servings_base: 4 }, ingredients: [{ ingredient_id: "a", amount: 1, unit: "stk" }, { ingredient_id: "b", amount: 2, unit: "g" }] },
     ]);
-    expect(result).toHaveLength(2);
+    assert.equal(result.length, 2);
   });
 });
 
@@ -38,7 +39,7 @@ describe("groupByDepartment", () => {
       ingredients,
       departments
     );
-    expect(result.map((g) => g.name)).toEqual(["Backwaren", "Obst", "Sonstiges"]);
+    assert.deepEqual(result.map((g) => g.name), ["Backwaren", "Obst", "Sonstiges"]);
   });
 });
 
@@ -52,7 +53,7 @@ describe("subtractPantry", () => {
       ],
       pantry
     );
-    expect(result).toEqual([
+    assert.deepEqual(result, [
       { ingredient_id: "tomate", amount: 300, unit: "g", needed: 200 },
       { ingredient_id: "reis", amount: 100, unit: "g", needed: 100 },
     ]);
@@ -61,13 +62,13 @@ describe("subtractPantry", () => {
   test("kompletter Vorrat deckt Bedarf, Position verschwindet", () => {
     const pantry = new Map([["reis", { ingredient_id: "reis", amount: 500, unit: "g" }]]);
     const result = subtractPantry([{ ingredient_id: "reis", amount: 100, unit: "g" }], pantry);
-    expect(result).toEqual([]);
+    assert.deepEqual(result, []);
   });
 
   test("Einheiten-Mismatch ignoriert Vorrat", () => {
     const pantry = new Map([["reis", { ingredient_id: "reis", amount: 5, unit: "stk" }]]);
     const result = subtractPantry([{ ingredient_id: "reis", amount: 100, unit: "g" }], pantry);
-    expect(result).toEqual([{ ingredient_id: "reis", amount: 100, unit: "g", needed: 100 }]);
+    assert.deepEqual(result, [{ ingredient_id: "reis", amount: 100, unit: "g", needed: 100 }]);
   });
 });
 
@@ -75,11 +76,11 @@ describe("roundToPackages", () => {
   test("rundet auf ganze Packungen auf", () => {
     const packs = new Map([["hack", { pack_size: 500, pack_unit: "g" }]]);
     const result = roundToPackages([{ ingredient_id: "hack", amount: 350, unit: "g", needed: 350 }], packs);
-    expect(result).toEqual([{ ingredient_id: "hack", amount: 350, unit: "g", needed: 350, packCount: 1, buyAmount: 500 }]);
+    assert.deepEqual(result, [{ ingredient_id: "hack", amount: 350, unit: "g", needed: 350, packCount: 1, buyAmount: 500 }]);
   });
 
   test("ohne bekannte Packungsgröße bleibt der Bedarf unverändert", () => {
     const result = roundToPackages([{ ingredient_id: "reis", amount: 100, unit: "g", needed: 100 }], new Map());
-    expect(result).toEqual([{ ingredient_id: "reis", amount: 100, unit: "g", needed: 100, packCount: null, buyAmount: 100 }]);
+    assert.deepEqual(result, [{ ingredient_id: "reis", amount: 100, unit: "g", needed: 100, packCount: null, buyAmount: 100 }]);
   });
 });
