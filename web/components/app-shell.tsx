@@ -28,7 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/angebote", label: "Angebote", icon: Tag, built: true },
   { href: "/preisvergleich", label: "Preisvergleich", icon: TrendingDown, built: true },
   { href: "/vorraete", label: "Vorräte", icon: Package, built: true },
-  { href: "/ernaehrung", label: "Ernährung & Profil", icon: HeartPulse, built: false },
+  { href: "/ernaehrung", label: "Ernährung & Profil", icon: HeartPulse, built: true },
   { href: "/auswertungen", label: "Auswertungen", icon: BarChart3, built: false },
   { href: "/einstellungen", label: "Einstellungen", icon: Settings, built: true },
 ];

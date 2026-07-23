@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { weekStartIso, addWeeks, dateForDay, dayLabel, formatShortDate, formatWeekRange } from "@/lib/plan/week";
 import { isEffortHigh, isRepeatedWithin14Days, weekRuleSummary, type RuleEntry } from "@/lib/plan/rules";
 import { entriesForPlan } from "@/lib/plan/templates";
+import { evaluateWeek, type NutritionEntry, type WeekAmpel } from "@/lib/plan/nutritionEvaluator";
 
 type RecipeSummary = {
   id: string;
@@ -68,6 +69,8 @@ export function WochenplanView() {
   const [pickerText, setPickerText] = useState("");
   const [templates, setTemplates] = useState<{ id: string; template_name: string | null }[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [nutritionAmpel, setNutritionAmpel] = useState<WeekAmpel | null>(null);
+  const [showNutritionDetails, setShowNutritionDetails] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +130,38 @@ export function WochenplanView() {
     load();
     return () => { cancelled = true; };
   }, [weekStart, supabase]);
+
+  // Wochen-Ampel (docs/09-modul-ernaehrung.md) — läuft immer, wenn sich die
+  // Einträge der Woche ändern (Laden, Zuweisen, Löschen, Vorlage anwenden),
+  // statt an jeder Mutationsstelle einzeln angestoßen zu werden.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadNutrition() {
+      if (entries.length === 0) { setNutritionAmpel(null); return; }
+      const recipeIds = [...new Set(entries.map((e) => e.recipe.id))];
+      const { data: ingredientRows } = await supabase
+        .from("recipe_ingredients")
+        .select("recipe_id, ingredients(iron_mg_100, calcium_mg_100)")
+        .in("recipe_id", recipeIds);
+      if (cancelled) return;
+
+      const nutrientsByRecipe = new Map<string, { iron_mg_100: number | null; calcium_mg_100: number | null }[]>();
+      for (const row of ingredientRows ?? []) {
+        const ing = Array.isArray(row.ingredients) ? row.ingredients[0] : row.ingredients;
+        if (!ing) continue;
+        if (!nutrientsByRecipe.has(row.recipe_id)) nutrientsByRecipe.set(row.recipe_id, []);
+        nutrientsByRecipe.get(row.recipe_id)!.push(ing);
+      }
+      const nutritionEntries: NutritionEntry[] = entries.map((e) => ({
+        day: e.day,
+        tags: e.recipe.tags,
+        ingredientNutrients: nutrientsByRecipe.get(e.recipe.id) ?? [],
+      }));
+      setNutritionAmpel(evaluateWeek(nutritionEntries));
+    }
+    loadNutrition();
+    return () => { cancelled = true; };
+  }, [entries, supabase]);
 
   async function loadTemplates() {
     const { data } = await supabase
@@ -281,6 +316,46 @@ export function WochenplanView() {
                   ))}
                 </ul>
               )}
+            </div>
+          )}
+          {nutritionAmpel && (
+            <div className="rounded-lg border border-border p-3">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between text-sm"
+                onClick={() => setShowNutritionDetails((v) => !v)}
+              >
+                <span className="flex items-center gap-2">
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      nutritionAmpel.overall === "gruen" ? "bg-emerald-500" : nutritionAmpel.overall === "gelb" ? "bg-amber-500" : "bg-red-500"
+                    }`}
+                  />
+                  <span className="font-medium">
+                    Wochen-Ampel:{" "}
+                    {nutritionAmpel.overall === "gruen" ? "Grün" : nutritionAmpel.overall === "gelb" ? "Gelb" : "Rot"}
+                  </span>
+                </span>
+                <span className="text-xs text-muted-foreground">{showNutritionDetails ? "Weniger" : "Details"}</span>
+              </button>
+              {showNutritionDetails && (
+                <ul className="mt-3 space-y-2 text-xs">
+                  {nutritionAmpel.criteria.map((c) => (
+                    <li key={c.id} className="flex items-start gap-2">
+                      <span
+                        className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
+                          c.ampel === "gruen" ? "bg-emerald-500" : c.ampel === "gelb" ? "bg-amber-500" : "bg-red-500"
+                        }`}
+                      />
+                      <span>
+                        <span className="font-medium">{c.label}</span> ({c.count})
+                        {c.suggestion && <span className="block text-muted-foreground">{c.suggestion}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="mt-2 text-[11px] text-muted-foreground">Planungshilfe, keine medizinische Beratung.</p>
             </div>
           )}
           {(missingVegetarian || missingFish) && (

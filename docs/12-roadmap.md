@@ -48,10 +48,10 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 - [x] Begründung pro Position *(aufklappbare Positionsliste zur empfohlenen Variante, sortiert nach größter Ersparnis, „bei X 1,29 € statt 1,99 € REWE" wenn REWE-Referenzpreis vorliegt)*
 
 ## Phase 6 — Ernährung
-- [ ] `nutrition_rules.json` + Evaluator
-- [ ] Wochen-Ampel live in der Planbearbeitung
-- [ ] Tauschvorschläge bei Rot
-- [ ] `household_members` + Trainingstage
+- [x] `nutrition_rules.json` + Evaluator *(als `web/lib/plan/nutrition_rules.ts` — TS-Konstante statt .json, JSON-Imports brauchen unter node:test Import-Attribute, unter Next.js nicht; genauso deklarativ. 8 Kriterien, Eisen/Calcium nährwertbasiert über `ingredients.iron_mg_100`/`calcium_mg_100`, Rest tag-basiert)*
+- [x] Wochen-Ampel live in der Planbearbeitung *(`wochenplan-view.tsx`, läuft bei jeder Änderung der Wocheneinträge)*
+- [x] Tauschvorschläge bei Rot *(deterministisch generiert — nennt die Tage, die das Kriterium (noch) nicht erfüllen, kein LLM, keine konkrete Rezept-Erfindung wie im docs/09-Beispiel, das wäre Phase-7-Vorschlags-Engine-Aufgabe)*
+- [x] `household_members` + Trainingstage *(`/ernaehrung`, Tabelle `household_members`; bewusst ohne `nutrition_targets` — docs/13 untersagt Kalorien-Vorgaben pro Person in der UI, YAGNI ohne Verwendungszweck)*
 
 ## Phase 7 — Lernen
 - [ ] `habit_events` überall instrumentieren
