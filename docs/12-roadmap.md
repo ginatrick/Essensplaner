@@ -43,9 +43,9 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 ## Phase 5 — Optimizer & REWE-Vergleich
 - [x] Varianten A/B/C/D berechnen *(`web/lib/optimizer/`, reine TS-Logik, 19 Tests via `npm test`. Preisvergleich als Preis-pro-benötigter-Menge, keine Pack-Rundung pro Angebot — das ist ein Bin-Packing-Problem, das für einen Kosten-VERGLEICH nicht nötig ist, siehe pricing.ts)*
 - [x] Routen-/Fahrtkosten (Brute Force ≤ 4 Märkte) *(route.ts: echte Haushalt→Markt-Distanz aus `stores`, Haversine-Näherung für Markt-zu-Markt-Strecken statt echter OSRM-Distanzmatrix — bewusste Vereinfachung, siehe Kommentar im Code)*
-- [ ] Vergleichstabelle + Empfehlungslogik
-- [ ] Settings: €/km, €/h, Toleranzen
-- [ ] Begründung pro Position
+- [x] Vergleichstabelle + Empfehlungslogik *(`/preisvergleich`. REWE-Preise über neue Edge Function `supabase/functions/price-compare` — ruft den Ingest-Service auf, Secrets/Deployment noch manuell nötig, siehe `supabase/functions/README.md`)*
+- [x] Settings: €/km, €/h, Toleranzen *(`/einstellungen`, Tabelle `user_settings`)*
+- [x] Begründung pro Position *(aufklappbare Positionsliste zur empfohlenen Variante, sortiert nach größter Ersparnis, „bei X 1,29 € statt 1,99 € REWE" wenn REWE-Referenzpreis vorliegt)*
 
 ## Phase 6 — Ernährung
 - [ ] `nutrition_rules.json` + Evaluator
