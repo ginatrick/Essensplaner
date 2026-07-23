@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, ShoppingCart } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight, ShoppingCart, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
@@ -37,6 +38,7 @@ export function EinkaufslisteView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [offline, setOffline] = useState(false);
+  const [unresolvedRecipes, setUnresolvedRecipes] = useState<{ id: string; title: string }[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,8 +95,21 @@ export function EinkaufslisteView() {
       const { data: departmentRows } = await supabase.from("departments").select("id, name, sort_order");
       const { data: pantryRows } = await supabase.from("pantry").select("ingredient_id, amount, unit");
       const { data: checkedRows } = await supabase.from("shopping_checked").select("ingredient_id").eq("plan_id", plan.id);
+      // Nicht zugeordnete Zutaten (siehe rezept-form.tsx) fehlen stillschweigend
+      // in der Liste, weil sie nicht in recipe_ingredients stehen — Warnung statt
+      // stiller Lücke, "Ziel: keine Zutaten ohne entsprechendes Produkt".
+      const { data: draftRows } = await supabase
+        .from("recipe_ingredient_drafts")
+        .select("recipe_id, recipes(title)")
+        .in("recipe_id", recipeIds);
       if (cancelled) return;
       setChecked(new Set((checkedRows ?? []).map((r) => r.ingredient_id)));
+      const unresolvedMap = new Map<string, string>();
+      for (const row of draftRows ?? []) {
+        const recipe = Array.isArray(row.recipes) ? row.recipes[0] : row.recipes;
+        unresolvedMap.set(row.recipe_id, recipe?.title ?? "Unbekanntes Rezept");
+      }
+      setUnresolvedRecipes([...unresolvedMap].map(([id, title]) => ({ id, title })));
 
       const byRecipe = new Map<string, { ingredient_id: string; amount: number; unit: string }[]>();
       const ingredientMeta = new Map<string, IngredientMeta>();
@@ -181,6 +196,20 @@ export function EinkaufslisteView() {
       {offline && (
         <p className="rounded-lg bg-amber-100 px-3 py-2 text-xs text-amber-800">
           Offline — zeigt den letzten gespeicherten Stand. Änderungen werden lokal gemerkt und synchronisieren, sobald wieder Verbindung besteht.
+        </p>
+      )}
+      {unresolvedRecipes.length > 0 && (
+        <p className="flex items-start gap-2 rounded-lg bg-amber-100 px-3 py-2 text-xs text-amber-800">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Nicht zugeordnete Zutaten fehlen in dieser Liste — betroffen:{" "}
+            {unresolvedRecipes.map((r, i) => (
+              <span key={r.id}>
+                {i > 0 && ", "}
+                <Link className="underline" href={`/rezepte/${r.id}/bearbeiten`}>{r.title}</Link>
+              </span>
+            ))}
+          </span>
         </p>
       )}
 

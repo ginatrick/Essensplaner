@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight, TrendingDown, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +35,7 @@ export function PreisvergleichView() {
   const [storeNames, setStoreNames] = useState<Map<string, string>>(new Map());
   const [reweByIngredient, setReweByIngredient] = useState<Map<string, number>>(new Map());
   const [matchRate, setMatchRate] = useState<number | null>(null);
+  const [unresolvedRecipes, setUnresolvedRecipes] = useState<{ id: string; title: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -63,6 +65,20 @@ export function PreisvergleichView() {
         .from("recipe_ingredients")
         .select("recipe_id, ingredient_id, amount, unit")
         .in("recipe_id", recipeIds);
+
+      // Nicht zugeordnete Zutaten fehlen stillschweigend im Vergleich, weil sie
+      // nicht in recipe_ingredients stehen — Warnung statt stiller Lücke.
+      const { data: draftRows } = await supabase
+        .from("recipe_ingredient_drafts")
+        .select("recipe_id, recipes(title)")
+        .in("recipe_id", recipeIds);
+      const unresolvedMap = new Map<string, string>();
+      for (const row of draftRows ?? []) {
+        const recipe = Array.isArray(row.recipes) ? row.recipes[0] : row.recipes;
+        unresolvedMap.set(row.recipe_id, recipe?.title ?? "Unbekanntes Rezept");
+      }
+      if (!cancelled) setUnresolvedRecipes([...unresolvedMap].map(([id, title]) => ({ id, title })));
+
       const byRecipe = new Map<string, { ingredient_id: string; amount: number; unit: string }[]>();
       for (const row of ingredientRows ?? []) {
         if (!byRecipe.has(row.recipe_id)) byRecipe.set(row.recipe_id, []);
@@ -176,6 +192,20 @@ export function PreisvergleichView() {
         </div>
       ) : (
         <>
+          {unresolvedRecipes.length > 0 && (
+            <p className="flex items-start gap-2 rounded-lg bg-amber-100 px-3 py-2 text-xs text-amber-800">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Nicht zugeordnete Zutaten fehlen im Vergleich — betroffen:{" "}
+                {unresolvedRecipes.map((r, i) => (
+                  <span key={r.id}>
+                    {i > 0 && ", "}
+                    <Link className="underline" href={`/rezepte/${r.id}/bearbeiten`}>{r.title}</Link>
+                  </span>
+                ))}
+              </span>
+            </p>
+          )}
           {matchRate != null && matchRate < 0.9 && (
             <p className="flex items-center gap-2 rounded-lg bg-amber-100 px-3 py-2 text-xs text-amber-800">
               <TriangleAlert className="h-4 w-4 shrink-0" />
