@@ -232,10 +232,17 @@ export function WochenplanView() {
   async function requestSuggestion() {
     setSuggestionLoading(true);
     setSuggestionError("");
-    const result = await generateWeekSuggestion();
-    setSuggestionLoading(false);
-    if ("error" in result) { setSuggestionError(result.error); return; }
-    setSuggestion(result);
+    try {
+      const result = await generateWeekSuggestion();
+      if ("error" in result) { setSuggestionError(result.error); return; }
+      setSuggestion(result);
+    } catch {
+      // Ohne Fallback bliebe der Button bei einem Fehler (z.B. Haiku-API
+      // down) für immer auf "wird erstellt" hängen, ohne Rückmeldung.
+      setSuggestionError("Der Vorschlag konnte nicht erstellt werden. Bitte erneut versuchen.");
+    } finally {
+      setSuggestionLoading(false);
+    }
   }
 
   async function acceptSuggestion() {

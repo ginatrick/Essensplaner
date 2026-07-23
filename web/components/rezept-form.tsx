@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { toBaseUnit } from "@/lib/units/convert";
 import { findDuplicateRecipes, type DuplicateCandidate } from "@/lib/recipes/findDuplicates";
+import { slugifyDe } from "@/lib/text/slugifyDe";
 
 export type RecipeFormValues = {
   title: string; source_url: string; servings_base: number; prep_min: number | null; cook_min: number | null;
@@ -76,7 +77,9 @@ export function RezeptForm({ defaultValues, recipeId }: { defaultValues?: Partia
   };
   const runIngredientSearch = async (index: number, name: string) => {
     const supabase = createClient();
-    const { data: substringMatches, error } = await supabase.from("ingredients").select("id,name").ilike("name", `%${name.replace(/[%_]/g, "\\$&")}%`).limit(8);
+    // Suche gegen slug statt name: "Kaese"/"Käse" ergeben denselben Slug,
+    // findet Treffer unabhängig von Umlaut- vs. ae/oe/ue-Schreibweise.
+    const { data: substringMatches, error } = await supabase.from("ingredients").select("id,name").ilike("slug", `%${slugifyDe(name)}%`).limit(8);
     if (latestQuery.current[index] !== name) return;
     if (error) { updateIngredient(index, { error: "Zutatensuche fehlgeschlagen." }); return; }
 

@@ -1,3 +1,5 @@
+import { decodeHtmlEntities } from "../text/decodeHtmlEntities.ts";
+
 export type RawRecipeDraft = {
   title: string;
   source_url?: string;
@@ -83,16 +85,17 @@ export function extractRecipeFromHtml(html: string): RawRecipeDraft {
   const recipe = readJsonLdBlocks(html).map(findRecipe).find((item): item is Record<string, unknown> => item !== null);
   if (!recipe) throw new RecipeJsonLdError("Kein Rezept auf dieser Seite gefunden.");
 
-  const title = typeof recipe.name === "string" ? recipe.name.trim() : "";
+  const title = typeof recipe.name === "string" ? decodeHtmlEntities(recipe.name.trim()) : "";
   if (!title) throw new RecipeJsonLdError("Das Rezept enthält keinen Titel.");
   return {
     title,
     servings_base: firstInteger(recipe.recipeYield),
     prep_min: durationToMinutes(recipe.prepTime),
     cook_min: durationToMinutes(recipe.cookTime),
-    steps: instructionTexts(recipe.recipeInstructions),
-    ingredients: Array.isArray(recipe.recipeIngredient)
+    steps: instructionTexts(recipe.recipeInstructions).map(decodeHtmlEntities),
+    ingredients: (Array.isArray(recipe.recipeIngredient)
       ? recipe.recipeIngredient.filter((item): item is string => typeof item === "string")
-      : [],
+      : []
+    ).map(decodeHtmlEntities),
   };
 }

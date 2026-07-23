@@ -85,7 +85,11 @@ export async function generateWeekSuggestion(): Promise<SuggestedWeekResult | { 
     .slice(0, 3)
     .map((c) => c.title);
 
-  const explanation = await explainSuggestion(anthropic, { improvedCriteria, explorationTitles, favoriteTitles });
+  // Fällt die Begründung aus (Haiku-API-Fehler), soll der fertig berechnete
+  // Vorschlag trotzdem nutzbar sein statt komplett zu scheitern.
+  const explanation = await explainSuggestion(anthropic, { improvedCriteria, explorationTitles, favoriteTitles }).catch(
+    () => "Diese Woche basiert auf deinen bisherigen Vorlieben.",
+  );
 
   return {
     slots: slots.map((s) => ({ day: s.day, recipeId: s.recipe.id, title: s.recipe.title, isExploration: s.isExploration })),

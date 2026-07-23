@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { toBaseUnit } from "@/lib/units/convert";
+import { slugifyDe } from "@/lib/text/slugifyDe";
 
 export type DraftRow = {
   id: string;
@@ -47,7 +48,7 @@ export function UnaufgeloestView({ rows: initialRows }: { rows: DraftRow[] }) {
 
   async function runSearch(rowId: string, name: string) {
     const supabase = createClient();
-    const { data: substringMatches } = await supabase.from("ingredients").select("id,name").ilike("name", `%${name.replace(/[%_]/g, "\\$&")}%`).limit(8);
+    const { data: substringMatches } = await supabase.from("ingredients").select("id,name").ilike("slug", `%${slugifyDe(name)}%`).limit(8);
     if (latestQuery.current[rowId] !== name) return;
     let opts = substringMatches ?? [];
     if (opts.length === 0) {

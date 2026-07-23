@@ -14,6 +14,15 @@ test("findet Recipe im @graph und verarbeitet HowToStep/HowToSection", () => {
   assert.deepEqual(extractRecipeFromHtml(html), { title: "Pasta", servings_base: 6, prep_min: undefined, cook_min: undefined, steps: ["Kochen", "Abgießen"], ingredients: ["250 g Nudeln"] });
 });
 
+test("dekodiert HTML-Entities in Titel, Zutaten und Schritten (manche Seiten liefern sie unkonvertiert im JSON-LD)", () => {
+  const data = { "@type": "Recipe", name: "K&auml;sesuppe", recipeIngredient: ["200 g K&auml;se", "1 Prise Salz &amp; Pfeffer"], recipeInstructions: ["K&auml;se reiben"] };
+  const html = `<script type="application/ld+json">${JSON.stringify(data)}</script>`;
+  const result = extractRecipeFromHtml(html);
+  assert.equal(result.title, "Käsesuppe");
+  assert.deepEqual(result.ingredients, ["200 g Käse", "1 Prise Salz & Pfeffer"]);
+  assert.deepEqual(result.steps, ["Käse reiben"]);
+});
+
 test("kein Recipe liefert definierten Fehler", () => {
   assert.throws(() => extractRecipeFromHtml("<html></html>"), RecipeJsonLdError);
 });
