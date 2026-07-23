@@ -1,0 +1,10 @@
+{
+  "name": "MealPlanner",
+  "short_name": "MealPlanner",
+  "description": "Wochenspeiseplan, Einkaufsliste und Vorräte für die Familie",
+  "start_url": "/plan",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

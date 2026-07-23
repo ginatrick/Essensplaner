@@ -29,7 +29,7 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 - [x] Pantry-Modul + Abzug *(/vorraete, Tabelle `pantry`; Abzug nur bei Einheiten-Match, sonst wird der Vorrat ignoriert statt falsch gerechnet)*
 - [x] Packungsrundung *(`ingredients.pack_size`/`pack_unit` nullable — ohne Angabe bleibt der Bedarf ungerundet; noch keine Datenpflege/Seed für Packungsgrößen)*
 - [x] Gruppierung nach Abteilung in Laufreihenfolge *(/einkaufslisten, `web/lib/plan/aggregate.ts`)*
-- [ ] Abhaken, PWA-Offline
+- [x] Abhaken, PWA-Offline *(Tabelle `shopping_checked`, optimistisches Abhaken; Offline-Stand der Liste in localStorage statt IndexedDB — kein Multi-Geräte-Konfliktabgleich; Service Worker cached nur den App-Shell, keine Hintergrund-Synchronisierung)*
 
 ## Phase 4 — Angebote & Ingest
 - [ ] FastAPI-Grundgerüst lokal, Shared-Secret-Auth, Cloudflare Tunnel für Supabase-Zugriff

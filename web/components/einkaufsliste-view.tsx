@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { weekStartIso, addWeeks, formatWeekRange } from "@/lib/plan/week";
+import { saveShoppingListCache, loadShoppingListCache } from "@/lib/plan/offlineCache";
 import {
   aggregateIngredients,
   groupByDepartment,
@@ -30,44 +31,70 @@ function formatAmount(amount: number, unit: string): string {
 export function EinkaufslisteView() {
   const supabase = useMemo(() => createClient(), []);
   const [weekStart, setWeekStart] = useState(() => weekStartIso());
+  const [planId, setPlanId] = useState<string | null>(null);
   const [groups, setGroups] = useState<GroupedDepartment<ShoppingItem>[]>([]);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       setLoading(true);
       setError("");
+      setOffline(false);
 
-      const { data: plan } = await supabase
+      try {
+        await loadFromNetwork();
+      } catch {
+        if (cancelled) return;
+        const cached = loadShoppingListCache(weekStart);
+        if (cached) {
+          setPlanId(cached.planId);
+          setGroups(cached.groups);
+          setChecked(new Set(cached.checked));
+          setOffline(true);
+        } else {
+          setError("Keine Verbindung und kein Offline-Stand für diese Woche vorhanden.");
+        }
+      }
+      if (!cancelled) setLoading(false);
+    }
+
+    async function loadFromNetwork() {
+      const { data: plan, error: planError } = await supabase
         .from("meal_plans")
         .select("id")
         .eq("week_start", weekStart)
         .eq("status", "draft")
         .maybeSingle();
+      if (planError) throw planError;
 
-      if (!plan) { if (!cancelled) { setGroups([]); setLoading(false); } return; }
+      if (!plan) { if (!cancelled) { setPlanId(null); setGroups([]); } return; }
+      setPlanId(plan.id);
 
       const { data: entryRows, error: entriesError } = await supabase
         .from("meal_plan_entries")
         .select("servings, recipe_id, recipes(id, servings_base)")
         .eq("plan_id", plan.id);
-      if (entriesError) { if (!cancelled) { setError("Einkaufsliste konnte nicht geladen werden."); setLoading(false); } return; }
+      if (entriesError) throw entriesError;
 
       const entries = (entryRows ?? []) as unknown as (EntryRow & { recipe_id: string })[];
       const recipeIds = [...new Set(entries.map((e) => e.recipe_id))];
-      if (recipeIds.length === 0) { if (!cancelled) { setGroups([]); setLoading(false); } return; }
+      if (recipeIds.length === 0) { if (!cancelled) setGroups([]); return; }
 
       const { data: ingredientRows, error: ingredientsError } = await supabase
         .from("recipe_ingredients")
         .select("recipe_id, ingredient_id, amount, unit, ingredients(name, department_id, pack_size, pack_unit)")
         .in("recipe_id", recipeIds);
-      if (ingredientsError) { if (!cancelled) { setError("Zutaten konnten nicht geladen werden."); setLoading(false); } return; }
+      if (ingredientsError) throw ingredientsError;
 
       const { data: departmentRows } = await supabase.from("departments").select("id, name, sort_order");
       const { data: pantryRows } = await supabase.from("pantry").select("ingredient_id, amount, unit");
+      const { data: checkedRows } = await supabase.from("shopping_checked").select("ingredient_id").eq("plan_id", plan.id);
       if (cancelled) return;
+      setChecked(new Set((checkedRows ?? []).map((r) => r.ingredient_id)));
 
       const byRecipe = new Map<string, { ingredient_id: string; amount: number; unit: string }[]>();
       const ingredientMeta = new Map<string, IngredientMeta>();
@@ -103,12 +130,38 @@ export function EinkaufslisteView() {
       const aggregated = aggregateIngredients(planEntries);
       const needed = subtractPantry(aggregated, pantry);
       const withPackages = roundToPackages(needed, packs);
-      setGroups(groupByDepartment(withPackages, ingredientMeta, departments));
-      setLoading(false);
+      const grouped = groupByDepartment(withPackages, ingredientMeta, departments);
+      if (cancelled) return;
+      setGroups(grouped);
+      saveShoppingListCache(weekStart, {
+        planId: plan.id,
+        groups: grouped,
+        checked: (checkedRows ?? []).map((r) => r.ingredient_id),
+      });
     }
     load();
     return () => { cancelled = true; };
   }, [weekStart, supabase]);
+
+  // Optimistisch: UI reagiert sofort, damit Abhaken auch offline nutzbar ist.
+  // ponytail: kein Retry/Sync-Queue — bei fehlgeschlagenem Schreiben (z. B. offline)
+  // bleibt der Haken lokal gesetzt, bis die nächste Synchronisierung greift.
+  function toggleChecked(ingredientId: string) {
+    if (!planId) return;
+    const isChecked = checked.has(ingredientId);
+    const next = new Set(checked);
+    if (isChecked) next.delete(ingredientId); else next.add(ingredientId);
+    setChecked(next);
+    saveShoppingListCache(weekStart, { planId, groups, checked: [...next] });
+    if (isChecked) {
+      void supabase.from("shopping_checked").delete().eq("plan_id", planId).eq("ingredient_id", ingredientId);
+    } else {
+      void supabase.from("shopping_checked").upsert({ plan_id: planId, ingredient_id: ingredientId, checked: true });
+    }
+  }
+
+  const totalItems = groups.reduce((sum, g) => sum + g.items.length, 0);
+  const checkedItems = groups.reduce((sum, g) => sum + g.items.filter((i) => checked.has(i.ingredient_id)).length, 0);
 
   return (
     <div className="space-y-6">
@@ -125,9 +178,23 @@ export function EinkaufslisteView() {
         </div>
       </div>
 
+      {offline && (
+        <p className="rounded-lg bg-amber-100 px-3 py-2 text-xs text-amber-800">
+          Offline — zeigt den letzten gespeicherten Stand. Änderungen werden lokal gemerkt und synchronisieren, sobald wieder Verbindung besteht.
+        </p>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle>Zutaten für die Woche</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Zutaten für die Woche</CardTitle>
+            {totalItems > 0 && <span className="text-xs text-muted-foreground">{checkedItems} von {totalItems}</span>}
+          </div>
+          {totalItems > 0 && (
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full bg-primary transition-all" style={{ width: `${(checkedItems / totalItems) * 100}%` }} />
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {error && <p className="text-sm text-destructive">{error}</p>}
@@ -143,16 +210,25 @@ export function EinkaufslisteView() {
               <div key={group.name}>
                 <h2 className="mb-2 text-sm font-semibold text-muted-foreground">{group.name}</h2>
                 <ul className="divide-y divide-border rounded-lg border border-border">
-                  {group.items.map((item) => (
-                    <li key={item.ingredient_id} className="flex items-center justify-between px-3 py-2 text-sm">
-                      <span>{item.name}</span>
-                      <span className="text-muted-foreground">
-                        {formatAmount(item.buyAmount, item.unit)}
-                        {item.packCount != null && ` (${item.packCount}× Packung)`}
-                        {item.buyAmount !== item.needed && ` · Bedarf ${formatAmount(item.needed, item.unit)}`}
-                      </span>
-                    </li>
-                  ))}
+                  {group.items.map((item) => {
+                    const isChecked = checked.has(item.ingredient_id);
+                    return (
+                      <li key={item.ingredient_id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleChecked(item.ingredient_id)}
+                          className="h-4 w-4 shrink-0"
+                        />
+                        <span className={`flex-1 ${isChecked ? "text-muted-foreground line-through" : ""}`}>{item.name}</span>
+                        <span className="text-muted-foreground">
+                          {formatAmount(item.buyAmount, item.unit)}
+                          {item.packCount != null && ` (${item.packCount}× Packung)`}
+                          {item.buyAmount !== item.needed && ` · Bedarf ${formatAmount(item.needed, item.unit)}`}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))

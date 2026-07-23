@@ -28,6 +28,7 @@ Preise: `integer` in **Cent**. Mengen: `numeric` in **Basiseinheit** (g/ml/stk).
 **shopping_lists** `id · plan_id · strategy('multi'|'single'|'rewe') · total_goods_cent · total_travel_cent · total_min · generated_at`
 **shopping_items** `id · list_id · ingredient_id · amount · unit · department_id · store_id · pack_size · pack_count · unit_price_cent · total_cent · is_offer · offer_id · checked · reason text`
 **pantry** `id · user_id · ingredient_id · amount · unit · updated_at`
+**shopping_checked** `plan_id · ingredient_id · checked · updated_at` — Abhaken-Status pro Plan+Zutat (Liste selbst bleibt live aggregiert, keine `shopping_lists`/`shopping_items`-Persistenz vor Phase 5)
 
 ## Angebote
 **offers** `id · store_id · ingredient_id(null) · raw_title · brand · amount · unit · price_cent · base_price_cent · valid_from · valid_to · source · confidence`
