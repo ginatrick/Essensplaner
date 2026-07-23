@@ -1,9 +1,8 @@
 -- Migration: offers-Tabelle + Review-RPC für Angebots-Matching (Phase 4).
--- Preise: integer Cent. Mengen: numeric in Roh-Einheit (unit ist der
--- Prospekt-Rohtext, siehe RawOffer in ingest/sources/_types.py — anders als
--- recipe_ingredients hier bewusst NICHT auf g/ml/stk vorab normalisiert,
--- weil die Rohtexte pro Kette zu uneinheitlich sind, siehe
--- codex/007-prospekt-aldi-norma.md).
+-- Preise: integer Cent. Mengen: numeric in Basiseinheit (g/ml/stk), wie
+-- recipe_ingredients — normalisiert aus dem Prospekt-Rohtext per
+-- ingest/parsing/quantity.py (nachgerüstet, siehe Phase-5-Vorbereitung
+-- in docs/12-roadmap.md). Kein Treffer -> amount/unit bleiben null.
 
 create table offers (
   id uuid primary key default gen_random_uuid(),

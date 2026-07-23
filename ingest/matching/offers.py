@@ -9,6 +9,8 @@ aus docs/03-datenmodell.md unverändert, Zeilenzahl bleibt bei unserer
 Filialanzahl (max. 3 pro Kette) unkritisch.
 """
 
+from parsing.quantity import parse_quantity
+
 from .ingredients import match_ingredient
 
 # RawOffer.source_chain (Slug aus den fetch()-Modulen) -> stores.chain (Anzeigename).
@@ -35,14 +37,20 @@ def save_offers(client, offers: list[dict]) -> int:
     rows = []
     for offer in offers:
         ingredient_id, confidence = match_ingredient(client, offer["title"])
+        # amount/unit auf Basiseinheit normalisieren (siehe parsing/quantity.py) —
+        # offers.amount/unit sind damit wie recipe_ingredients "amount gilt für
+        # unit in g/ml/stk", kein Roh-Prospekttext mehr. Kein Treffer -> beide
+        # None, die Zeile landet trotzdem in offers (Review-UI/Nachpflege),
+        # zählt aber nicht in Preisvergleichen mit, die amount/unit brauchen.
+        amount, unit = parse_quantity(offer["amount"], offer["unit"])
         for store_id in store_ids:
             rows.append({
                 "store_id": store_id,
                 "ingredient_id": ingredient_id,
                 "raw_title": offer["title"],
                 "brand": offer["brand"],
-                "amount": offer["amount"],
-                "unit": offer["unit"],
+                "amount": amount,
+                "unit": unit,
                 "price_cent": offer["price_cent"],
                 "valid_from": offer["valid_from"],
                 "valid_to": offer["valid_to"],

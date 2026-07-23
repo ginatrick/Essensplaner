@@ -33,6 +33,7 @@ Preise: `integer` in **Cent**. Mengen: `numeric` in **Basiseinheit** (g/ml/stk).
 
 ## Angebote
 **offers** `id · store_id · ingredient_id(null) · raw_title · brand · amount · unit · price_cent · base_price_cent · valid_from · valid_to · source · confidence`
+— `amount`/`unit` sind auf Basiseinheit normalisiert (g/ml/stk, wie `recipe_ingredients`), `price_cent` gilt für `(amount, unit)`. Normalisierung per `ingest/parsing/quantity.py` aus dem Prospekt-Rohtext; kein Treffer → beide `null`, Zeile bleibt trotzdem in `offers` (Review-UI), zählt aber nicht in Preisvergleichen mit, die `amount`/`unit` brauchen.
 → Index `(store_id, valid_from, valid_to)`, `(ingredient_id)`
 **price_history** `ingredient_id · store_id · price_cent · observed_at` (für Plausibilitätsprüfung)
 **rewe_prices** `id · ingredient_id · product_name · amount · unit · price_cent · is_offer · market_id · fetched_at`
