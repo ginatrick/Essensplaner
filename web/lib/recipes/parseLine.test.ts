@@ -57,3 +57,27 @@ test("Trimmt Whitespace am Rand", () => {
     name: "Zucker",
   });
 });
+
+test("Klammer-Zusatz (Verpackungs-/Zubereitungshinweis) wird aus dem Namen entfernt", () => {
+  assert.deepEqual(parseIngredientLine("1 Dose Mais (à 140 g Abtropfgewicht)"), {
+    amount: 1,
+    unit: "Dose",
+    name: "Mais",
+  });
+});
+
+test("Klammer-Zusatz ohne erkannte Einheit", () => {
+  assert.deepEqual(parseIngredientLine("2 Zwiebeln (fein gewürfelt)"), {
+    amount: 2,
+    unit: null,
+    name: "Zwiebeln",
+  });
+});
+
+test("Klammer-Zusatz ohne führende Menge", () => {
+  assert.deepEqual(parseIngredientLine("Salz (nach Geschmack)"), {
+    amount: 1,
+    unit: null,
+    name: "Salz",
+  });
+});
