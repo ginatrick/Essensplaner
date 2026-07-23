@@ -39,13 +39,28 @@ export function RezeptForm({ defaultValues, recipeId }: { defaultValues?: Partia
   const searchIngredient = async (index: number, name: string) => {
     latestQuery.current[index] = name;
     updateIngredient(index, { name, ingredient_id: null, error: undefined });
-    if (!name.trim()) return;
-    const { data, error } = await createClient().from("ingredients").select("id,name").ilike("name", `%${name.replace(/[%_]/g, "\\$&")}%`).limit(8);
+    if (!name.trim()) { setIngredientOptions((options) => ({ ...options, [index]: [] })); return; }
+
+    const supabase = createClient();
+    const { data: substringMatches, error } = await supabase.from("ingredients").select("id,name").ilike("name", `%${name.replace(/[%_]/g, "\\$&")}%`).limit(8);
     if (latestQuery.current[index] !== name) return;
     if (error) { updateIngredient(index, { error: "Zutatensuche fehlgeschlagen." }); return; }
-    setIngredientOptions((options) => ({ ...options, [index]: data ?? [] }));
-    const exact = data?.find((item) => item.name.toLowerCase() === name.trim().toLowerCase());
-    updateIngredient(index, exact ? { ingredient_id: exact.id, name: exact.name } : { error: data?.length ? "Bitte eine Zutat aus den Treffern auswählen." : "Keine Zutat gefunden." });
+
+    let options = substringMatches ?? [];
+    // Kein Substring-Treffer -> Ähnlichkeitssuche (Trigram-Fuzzy) als Vorschlag,
+    // deckt Tippfehler/andere Schreibweisen ab statt sofort "keine Zutat
+    // gefunden" zu melden. Gleiche Schwelle wie web/lib/recipes/lookupAlias.ts.
+    if (options.length === 0) {
+      const fuzzy = await supabase.rpc("match_ingredient_alias_fuzzy", { search: name.trim(), min_similarity: 0.4, match_limit: 5 });
+      if (latestQuery.current[index] !== name) return;
+      options = (fuzzy.data ?? []).map((f: { ingredient_id: string; alias: string }) => ({ id: f.ingredient_id, name: f.alias }));
+    }
+
+    setIngredientOptions((opts) => ({ ...opts, [index]: options }));
+    const match = options.find((item) => item.name.toLowerCase() === name.trim().toLowerCase());
+    updateIngredient(index, match
+      ? { ingredient_id: match.id, name: match.name }
+      : { error: options.length ? "Kein exakter Treffer — bitte einen Vorschlag auswählen." : "Keine Zutat gefunden." });
   };
   const [ingredientOptions, setIngredientOptions] = useState<Record<number, { id: string; name: string }[]>>({});
 
@@ -66,7 +81,11 @@ export function RezeptForm({ defaultValues, recipeId }: { defaultValues?: Partia
     }
     const { data: recipe, error } = recipeId ? await supabase.from("recipes").update(payload).eq("id", recipeId).select("id").single() : await supabase.from("recipes").insert({ ...payload, user_id: userData.user.id }).select("id").single();
     if (error || !recipe) { setFormError(error?.message ?? "Das Rezept konnte nicht gespeichert werden."); setSaving(false); return; }
-    if (recipeId) { await supabase.from("recipe_steps").delete().eq("recipe_id", recipe.id); await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipe.id); }
+    if (recipeId) {
+      await supabase.from("recipe_steps").delete().eq("recipe_id", recipe.id);
+      await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipe.id);
+      await supabase.from("recipe_ingredient_drafts").delete().eq("recipe_id", recipe.id);
+    }
     const steps = values.steps.map((text, i) => ({ recipe_id: recipe.id, step_no: i + 1, text: text.trim() })).filter((step) => step.text);
     // Einen Durchgang über alle Zeilen, EIN setValues für die Fehler-Annotationen —
     // sonst überschreibt bei mehreren gleichzeitig fehlerhaften Zeilen der letzte
@@ -74,8 +93,19 @@ export function RezeptForm({ defaultValues, recipeId }: { defaultValues?: Partia
     // zum Renderzeitpunkt eingefrorenen values.ingredients).
     const annotatedIngredients: IngredientRow[] = [];
     const ingredientRows: { recipe_id: string; ingredient_id: string; amount: number; unit: string }[] = [];
+    // Zeilen ohne Zutat-Treffer gehen als Entwurf in recipe_ingredient_drafts,
+    // statt beim Speichern stillschweigend verworfen zu werden (vorher:
+    // beim nächsten Bearbeiten spurlos verschwunden, siehe Migration
+    // 20260723200000_recipe_ingredient_drafts.sql).
+    const draftRows: { recipe_id: string; raw_name: string; amount: string | null; unit: string | null }[] = [];
     for (const row of values.ingredients) {
-      if (!row.ingredient_id || !row.amount || !row.unit) { annotatedIngredients.push(row); continue; }
+      if (!row.name.trim()) continue; // komplett leere Zeile, nichts zu speichern
+      if (!row.ingredient_id) {
+        draftRows.push({ recipe_id: recipe.id, raw_name: row.name.trim(), amount: row.amount || null, unit: row.unit || null });
+        annotatedIngredients.push(row);
+        continue;
+      }
+      if (!row.amount || !row.unit) { annotatedIngredients.push(row); continue; }
       const amount = Number(row.amount);
       if (!Number.isFinite(amount)) { annotatedIngredients.push({ ...row, error: "Bitte eine gültige Menge eingeben." }); continue; }
       try {
@@ -89,7 +119,8 @@ export function RezeptForm({ defaultValues, recipeId }: { defaultValues?: Partia
     update("ingredients", annotatedIngredients);
     const stepError = steps.length ? (await supabase.from("recipe_steps").insert(steps)).error : null;
     const ingredientError = ingredientRows.length ? (await supabase.from("recipe_ingredients").insert(ingredientRows)).error : null;
-    if (stepError || ingredientError) { setFormError(stepError?.message ?? ingredientError?.message ?? "Ein Teil des Rezepts konnte nicht gespeichert werden."); setSaving(false); return; }
+    const draftError = draftRows.length ? (await supabase.from("recipe_ingredient_drafts").insert(draftRows)).error : null;
+    if (stepError || ingredientError || draftError) { setFormError(stepError?.message ?? ingredientError?.message ?? draftError?.message ?? "Ein Teil des Rezepts konnte nicht gespeichert werden."); setSaving(false); return; }
     router.push(`/rezepte/${recipe.id}`); router.refresh();
   }
   return <form onSubmit={save} className="space-y-6"><Card><CardHeader><CardTitle>Grunddaten</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2"><div className="space-y-2 sm:col-span-2"><Label htmlFor="title">Titel *</Label><Input id="title" required value={values.title} onChange={(e) => update("title", e.target.value)} /></div><div className="space-y-2"><Label htmlFor="source">Quelle (URL)</Label><Input id="source" type="url" value={values.source_url} onChange={(e) => update("source_url", e.target.value)} /></div><div className="space-y-2"><Label htmlFor="servings">Portionen</Label><Input id="servings" type="number" min="1" value={values.servings_base} onChange={(e) => update("servings_base", Number(e.target.value))} /></div><div className="space-y-2"><Label htmlFor="prep">Vorbereitung (Min.)</Label><Input id="prep" type="number" min="0" value={values.prep_min ?? ""} onChange={(e) => update("prep_min", e.target.value ? Number(e.target.value) : null)} /></div><div className="space-y-2"><Label htmlFor="cook">Kochen (Min.)</Label><Input id="cook" type="number" min="0" value={values.cook_min ?? ""} onChange={(e) => update("cook_min", e.target.value ? Number(e.target.value) : null)} /></div><div className="space-y-2"><Label htmlFor="difficulty">Schwierigkeit</Label><select id="difficulty" className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={values.difficulty ?? ""} onChange={(e) => update("difficulty", (e.target.value || null) as RecipeFormValues["difficulty"])}><option value="">Keine Angabe</option><option>einfach</option><option>mittel</option><option>schwer</option></select></div><div className="space-y-2"><Label htmlFor="tags">Tags (Komma-getrennt)</Label><Input id="tags" value={tagsText} onChange={(e) => setTagsText(e.target.value)} /></div><div className="flex gap-6 sm:col-span-2"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={values.kid_friendly} onChange={(e) => update("kid_friendly", e.target.checked)} /> Kinderfreundlich</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={values.is_experimental} onChange={(e) => update("is_experimental", e.target.checked)} /> Experimentell</label></div></CardContent></Card>

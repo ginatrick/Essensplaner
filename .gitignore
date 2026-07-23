@@ -8,3 +8,5 @@ ingest/.env
 ingest/__pycache__/
 ingest/**/__pycache__/
 ingest/.pytest_cache/
+
+supabase/.temp/
