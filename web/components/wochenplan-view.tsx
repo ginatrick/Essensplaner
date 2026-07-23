@@ -26,7 +26,7 @@ type RecipeSummary = {
 type Entry = { id: string; day: number; recipe: RecipeSummary; pinned: boolean };
 
 function toRuleEntry(e: Entry): RuleEntry {
-  return { day: e.day, recipe: e.recipe, pinned: e.pinned };
+  return { id: e.id, day: e.day, recipe: e.recipe, pinned: e.pinned };
 }
 
 type EntryRow = { id: string; day: number; pinned: boolean | null; recipes: RecipeSummary[] | RecipeSummary | null };
@@ -98,8 +98,23 @@ export function WochenplanView() {
           .insert({ user_id: userData.user.id, week_start: weekStart, status: "draft", source: "manual" })
           .select("id")
           .single();
-        if (created.error) { if (!cancelled) { setError("Wochenplan konnte nicht angelegt werden."); setLoading(false); } return; }
-        plan = created.data;
+        if (created.error) {
+          // Zwischen Prüfen und Anlegen kann ein paralleler Aufruf denselben
+          // Plan erzeugt haben (React-Doppelrender, zwei Tabs). Seit dem
+          // Unique-Index scheitert der zweite Insert — dann den vorhandenen
+          // Plan verwenden statt einen weiteren anzulegen. Genau so entstanden
+          // die drei Pläne für dieselbe Woche.
+          const retry = await supabase
+            .from("meal_plans")
+            .select("id")
+            .eq("week_start", weekStart)
+            .eq("status", "draft")
+            .maybeSingle();
+          if (!retry.data) { if (!cancelled) { setError("Wochenplan konnte nicht angelegt werden."); setLoading(false); } return; }
+          plan = retry.data;
+        } else {
+          plan = created.data;
+        }
       }
       if (cancelled) return;
       setPlanId(plan.id);
@@ -248,12 +263,16 @@ export function WochenplanView() {
   async function acceptSuggestion() {
     if (!suggestion || !planId) return;
     for (const slot of suggestion.slots) {
-      const existing = entries.find((e) => e.day === slot.day);
-      if (existing) {
-        await supabase.from("meal_plan_entries").update({ recipe_id: slot.recipeId }).eq("id", existing.id);
-      } else {
-        await supabase.from("meal_plan_entries").insert({ plan_id: planId, day: slot.day, slot: SLOT, recipe_id: slot.recipeId, servings: 4 });
-      }
+      // upsert statt find-dann-insert: `entries` ist der Stand vom letzten
+      // Render und damit veraltet, wenn zweimal schnell hintereinander
+      // übernommen wird — so entstand jedes Gericht doppelt im Plan.
+      // Konfliktziel ist der Unique-Index aus Migration 20260723240000.
+      await supabase
+        .from("meal_plan_entries")
+        .upsert(
+          { plan_id: planId, day: slot.day, slot: SLOT, recipe_id: slot.recipeId, servings: 4 },
+          { onConflict: "plan_id,day,slot" },
+        );
       await logHabitEvent(supabase, { eventType: "suggestion_accepted", recipeId: slot.recipeId });
     }
     setSuggestion(null);

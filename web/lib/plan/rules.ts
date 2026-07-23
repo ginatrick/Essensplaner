@@ -9,6 +9,11 @@ export type RuleRecipe = {
 };
 
 export type RuleEntry = {
+  // Identität des Eintrags. Ohne sie ließ sich der Eintrag beim Wiederholungs-
+  // Check nur über Objekt-Referenz von sich selbst unterscheiden — hielt der
+  // Aufrufer eine Kopie statt der Originalreferenz, meldete jedes Gericht sich
+  // selbst als Wiederholung.
+  id: string;
   day: number;
   recipe: RuleRecipe;
   pinned: boolean;
@@ -41,7 +46,7 @@ export function isRepeatedWithin14Days(
 ): boolean {
   if (entry.pinned) return false;
   const others = currentWeekEntries
-    .filter((e) => e !== entry)
+    .filter((e) => e.id !== entry.id)
     .map((e) => ({ ...e, dayOffset: e.day }))
     .concat(previousWeekEntries.map((e) => ({ ...e, dayOffset: e.day - 7 })));
 

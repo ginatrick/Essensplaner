@@ -5,8 +5,9 @@ import { isVegetarian, isFish, isEffortHigh, isRepeatedWithin14Days, weekRuleSum
 function recipe(id: string, tags: string[] | null = [], prep = 0, cook = 0) {
   return { id, tags, prep_min: prep, cook_min: cook };
 }
+let nextEntryId = 0;
 function entry(day: number, r: ReturnType<typeof recipe>, pinned = false): RuleEntry {
-  return { day, recipe: r, pinned };
+  return { id: `entry-${nextEntryId++}`, day, recipe: r, pinned };
 }
 
 test("isVegetarian erkennt Freitext-Tags case-insensitive", () => {
@@ -24,6 +25,16 @@ test("isFish erkennt 'fisch' im Tag", () => {
 test("isEffortHigh: Schwelle prep+cook > 60", () => {
   assert.equal(isEffortHigh(recipe("1", [], 30, 30)), false); // genau 60 -> kein Hinweis
   assert.equal(isEffortHigh(recipe("1", [], 30, 31)), true);
+});
+
+test("isRepeatedWithin14Days: einzelnes Gericht meldet sich nicht selbst — auch wenn die Liste eine Kopie enthält", () => {
+  // Der gemeldete Bug: der Selbst-Ausschluss lief über Objekt-Referenz. Hielt
+  // der Aufrufer eine Kopie, verglich sich das Gericht mit sich selbst und
+  // wurde als "schon in den letzten 14 Tagen" markiert, obwohl es der einzige
+  // Eintrag war.
+  const single = entry(0, recipe("A"));
+  assert.equal(isRepeatedWithin14Days(single, [single], []), false);
+  assert.equal(isRepeatedWithin14Days(single, [{ ...single }], []), false);
 });
 
 test("isRepeatedWithin14Days: gleiches Rezept innerhalb 14 Tage meldet Wiederholung", () => {
