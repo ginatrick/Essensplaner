@@ -8,8 +8,12 @@ from fastapi import Depends, FastAPI
 from fastapi import Query
 
 from auth import require_ingest_secret
-from clients.supabase import get_cached_rewe_price, get_ingredient_name, insert_rewe_price
+from clients.supabase import get_cached_rewe_price, get_ingredient_name, get_service_client, insert_rewe_price
+from matching.offers import save_offers
+from sources.aldi_nord.fetch import fetch as fetch_aldi_nord
+from sources.norma.fetch import fetch as fetch_norma
 from sources.rewe.fetch import fetch_price
+from sources.schwarz_leaflets.fetch import fetch as fetch_schwarz_leaflets
 
 load_dotenv()
 
@@ -52,3 +56,22 @@ def rewe_price(
 
     stored = insert_rewe_price(ingredient_id, market_id, hit)
     return _rewe_hit_response(stored)
+
+
+OFFER_FETCHERS = {
+    "lidl": lambda: fetch_schwarz_leaflets("lidl"),
+    "kaufland": lambda: fetch_schwarz_leaflets("kaufland"),
+    "aldi_nord": fetch_aldi_nord,
+    "norma": fetch_norma,
+}
+
+
+@app.post("/offers/sync", dependencies=[Depends(require_ingest_secret)])
+def sync_offers(chain: str = Query(...)) -> dict:
+    fetcher = OFFER_FETCHERS.get(chain)
+    if fetcher is None:
+        return {"chain": chain, "offers_found": 0, "offers_saved": 0, "error": "unbekannte Kette"}
+
+    offers = fetcher()
+    saved = save_offers(get_service_client(), offers) if offers else 0
+    return {"chain": chain, "offers_found": len(offers), "offers_saved": saved}
