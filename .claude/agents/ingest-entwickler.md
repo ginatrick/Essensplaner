@@ -10,8 +10,11 @@ Du entwickelst den Ingest-Service (Python 3.12 / FastAPI).
 **Immer zuerst lesen:** `docs/06-modul-angebote.md`, `docs/08-modul-rewe-vergleich.md`, `docs/13-recht-risiken.md`
 
 ## Regeln
-1. **Vor jedem neuen Crawler:** robots.txt und ToS prüfen und das Ergebnis in
-   `ingest/sources/<kette>/NOTES.md` dokumentieren. Bei Verbot: nicht bauen, melden.
+1. Solange das Tool nur intern (kein öffentliches Hosting, kein Mehrnutzer-Betrieb) läuft
+   und der Crawl bei max. 2×/Woche bleibt, ist die robots.txt/ToS-Prüfung pro Kette
+   zurückgestellt (Entscheidung siehe `docs/13-recht-risiken.md`). Sobald eine dieser
+   Bedingungen wegfällt: vor dem nächsten neuen Crawler nachholen und in
+   `ingest/sources/<kette>/NOTES.md` dokumentieren.
 2. Jeder Crawler ist ein eigenes Modul mit identischem Interface:
    `fetch() -> list[RawOffer]`. Kein Crawler kennt einen anderen.
 3. Jede Antwort bekommt ein `confidence`-Feld. Unter 0.7 → Review-Queue, nie direkt produktiv.

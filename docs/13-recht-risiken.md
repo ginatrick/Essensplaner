@@ -9,10 +9,13 @@
 - Kein Nachbau einer Rezeptdatenbank für Dritte.
 
 ## Angebots-Scraping
-- ToS/robots.txt der jeweiligen Seite prüfen, **bevor** ein Crawler pro Kette gebaut wird.
+- **Aktueller Stand:** reines internes Tool, nicht öffentlich, Crawl nur Mo+Mi früh
+  (2×/Woche) → ToS/robots.txt-Prüfung pro Kette ist für diese Phase bewusst
+  zurückgestellt. Vor jedem Schritt in Richtung mehrerer Nutzer, öffentlichem
+  Hosting oder höherer Crawl-Frequenz muss das nachgeholt werden.
+- Rate-Limit trotzdem einhalten: max. 1 Crawl pro Kette pro Tag, User-Agent mit Kontaktangabe
+  — kostet nichts und hält die Tür für später offen.
 - Prospekt-PDFs, die frei und ohne Login angeboten werden, sind das mildeste Mittel.
-- Rate-Limit einhalten: max. 1 Crawl pro Kette pro Tag, User-Agent mit Kontaktangabe.
-- Aggregatoren (Stufe 3) haben oft explizite Scraping-Verbote → nur nach Prüfung.
 - Alternative wenn blockiert: manueller Prospekt-Upload durch den Nutzer.
 
 ## REWE-Abholservice

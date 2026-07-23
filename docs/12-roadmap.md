@@ -32,12 +32,12 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 - [x] Abhaken, PWA-Offline *(Tabelle `shopping_checked`, optimistisches Abhaken; Offline-Stand der Liste in localStorage statt IndexedDB — kein Multi-Geräte-Konfliktabgleich; Service Worker cached nur den App-Shell, keine Hintergrund-Synchronisierung)*
 
 ## Phase 4 — Angebote & Ingest
-- [ ] FastAPI-Grundgerüst lokal, Shared-Secret-Auth, Cloudflare Tunnel für Supabase-Zugriff
+- [x] FastAPI-Grundgerüst lokal, Shared-Secret-Auth *(`ingest/`, `GET /health` offen, alles andere hinter `X-Ingest-Secret`; Cloudflare Tunnel manuell einzurichten, Anleitung in `ingest/README.md`)*
 - [ ] `stores` manuell pflegen (15–25 Märkte) + OSRM-Distanzen
 - [ ] REWE-Preisabfrage *(→ Codex, klarer Kontrakt)*
 - [ ] Prospekt-PDF-Pipeline mit Haiku *(→ Codex pro Kette)*
 - [ ] Matching + Confidence + Review-UI
-- [ ] Cron Mo/Do + advisory lock
+- [ ] Cron Mo/Mi + advisory lock
 - [ ] `price_history` + Plausibilitätsfilter
 
 ## Phase 5 — Optimizer & REWE-Vergleich

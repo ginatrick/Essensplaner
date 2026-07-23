@@ -25,7 +25,7 @@
 5. `confidence < 0.7` → Review-Queue, nicht in den Optimizer
 
 ## Scheduling
-- Cron Mo 05:00 + Do 05:00 (typische Prospektwechsel)
+- Cron Mo 05:00 + Mi 05:00 (reicht für den aktuellen Bedarf; nur internes Tool, siehe docs/13)
 - `pg_advisory_lock(hashtext(chain))` gegen Doppelläufe
 - Angebote nie löschen → `price_history` für Plausibilität
 
