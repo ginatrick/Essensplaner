@@ -3,21 +3,35 @@ Läuft lokal auf dem Entwickler-PC, erreichbar für Supabase über Cloudflare
 Tunnel (siehe README.md). Crawler/Parser folgen als eigene Endpoints unter
 sources/ und parsing/, siehe docs/06-modul-angebote.md."""
 
+from contextlib import asynccontextmanager
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi import Query
 
 from auth import require_ingest_secret
-from clients.supabase import get_cached_rewe_price, get_ingredient_name, get_service_client, insert_rewe_price
-from matching.offers import save_offers
-from sources.aldi_nord.fetch import fetch as fetch_aldi_nord
-from sources.norma.fetch import fetch as fetch_norma
+from clients.supabase import get_cached_rewe_price, get_ingredient_name, insert_rewe_price
+from scheduler import run_scheduled_sync, sync_chain
 from sources.rewe.fetch import fetch_price
-from sources.schwarz_leaflets.fetch import fetch as fetch_schwarz_leaflets
 
 load_dotenv()
 
-app = FastAPI(title="MealPlanner Ingest")
+# Cron Mo/Mi 05:00 (docs/06-modul-angebote.md) — läuft nur, solange der
+# Prozess läuft (docs/02-architektur.md: PC aus = Cron pausiert, akzeptiert).
+_scheduler = BackgroundScheduler()
+_scheduler.add_job(run_scheduled_sync, CronTrigger(day_of_week="mon,wed", hour=5, minute=0))
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _scheduler.start()
+    yield
+    _scheduler.shutdown(wait=False)
+
+
+app = FastAPI(title="MealPlanner Ingest", lifespan=_lifespan)
 
 REWE_RESPONSE_FIELDS = ("product_name", "amount", "unit", "price_cent", "is_offer")
 
@@ -58,20 +72,6 @@ def rewe_price(
     return _rewe_hit_response(stored)
 
 
-OFFER_FETCHERS = {
-    "lidl": lambda: fetch_schwarz_leaflets("lidl"),
-    "kaufland": lambda: fetch_schwarz_leaflets("kaufland"),
-    "aldi_nord": fetch_aldi_nord,
-    "norma": fetch_norma,
-}
-
-
 @app.post("/offers/sync", dependencies=[Depends(require_ingest_secret)])
 def sync_offers(chain: str = Query(...)) -> dict:
-    fetcher = OFFER_FETCHERS.get(chain)
-    if fetcher is None:
-        return {"chain": chain, "offers_found": 0, "offers_saved": 0, "error": "unbekannte Kette"}
-
-    offers = fetcher()
-    saved = save_offers(get_service_client(), offers) if offers else 0
-    return {"chain": chain, "offers_found": len(offers), "offers_saved": saved}
+    return sync_chain(chain)

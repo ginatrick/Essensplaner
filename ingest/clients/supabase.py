@@ -54,3 +54,27 @@ def insert_rewe_price(ingredient_id: str, market_id: str, hit: dict) -> dict:
         .execute()
     )
     return result.data
+
+
+# Lock gegen Doppelläufe (docs/06-modul-angebote.md), siehe Kommentar in der
+# Migration 20260723140000_ingest_locks.sql zur Abweichung von pg_advisory_lock.
+_STALE_LOCK_AFTER_MINUTES = 60
+
+
+def try_lock_chain(chain: str) -> bool:
+    """Atomarer Try-Lock. True = Lock erhalten, False = schon gesperrt."""
+    client = get_service_client()
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=_STALE_LOCK_AFTER_MINUTES)).isoformat()
+    # Verwaiste Locks aufräumen (Prozess abgestürzt, ohne zu entsperren) —
+    # ponytail: feste Zeitschwelle statt Prozess-Health-Check, reicht für
+    # einen Cron, der nur 2x/Woche läuft.
+    client.from_("ingest_locks").delete().eq("chain", chain).lt("locked_at", cutoff).execute()
+    try:
+        client.from_("ingest_locks").insert({"chain": chain}).execute()
+        return True
+    except Exception:
+        return False
+
+
+def release_lock_chain(chain: str) -> None:
+    get_service_client().from_("ingest_locks").delete().eq("chain", chain).execute()
