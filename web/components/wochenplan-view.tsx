@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Clock, Plus, Pencil, Trash2, UtensilsCrossed } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Plus, Pencil, Trash2, UtensilsCrossed, BookmarkPlus, LayoutTemplate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { weekStartIso, addWeeks, dateForDay, dayLabel, formatShortDate, formatWeekRange } from "@/lib/plan/week";
 import { isEffortHigh, isRepeatedWithin14Days, weekRuleSummary, type RuleEntry } from "@/lib/plan/rules";
+import { entriesForPlan } from "@/lib/plan/templates";
 
 type RecipeSummary = {
   id: string;
@@ -65,6 +66,8 @@ export function WochenplanView() {
   const [editingDay, setEditingDay] = useState<number | null>(null);
   const [recipeOptions, setRecipeOptions] = useState<{ id: string; title: string }[]>([]);
   const [pickerText, setPickerText] = useState("");
+  const [templates, setTemplates] = useState<{ id: string; template_name: string | null }[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,6 +128,65 @@ export function WochenplanView() {
     return () => { cancelled = true; };
   }, [weekStart, supabase]);
 
+  async function loadTemplates() {
+    const { data } = await supabase
+      .from("meal_plans")
+      .select("id, template_name")
+      .eq("status", "template")
+      .order("week_start", { ascending: false });
+    setTemplates(data ?? []);
+  }
+
+  async function saveAsTemplate() {
+    if (!planId) return;
+    const name = window.prompt("Name der Vorlage:");
+    if (!name) return;
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return;
+
+    const { data: rows } = await supabase
+      .from("meal_plan_entries")
+      .select("day, slot, recipe_id, servings, pinned")
+      .eq("plan_id", planId);
+
+    const created = await supabase
+      .from("meal_plans")
+      .insert({ user_id: userData.user.id, week_start: weekStartIso(), status: "template", source: "manual", template_name: name })
+      .select("id")
+      .single();
+    if (created.error || !created.data) { setError("Vorlage konnte nicht gespeichert werden."); return; }
+
+    if (rows && rows.length > 0) {
+      await supabase.from("meal_plan_entries").insert(entriesForPlan(created.data.id, rows));
+    }
+    await loadTemplates();
+  }
+
+  async function applyTemplate(templateId: string) {
+    if (!planId) return;
+    const { data: rows } = await supabase
+      .from("meal_plan_entries")
+      .select("day, slot, recipe_id, servings, pinned")
+      .eq("plan_id", templateId);
+    if (!rows || rows.length === 0) return;
+
+    const days = rows.map((r) => r.day);
+    await supabase.from("meal_plan_entries").delete().eq("plan_id", planId).in("day", days);
+    await supabase.from("meal_plan_entries").insert(entriesForPlan(planId, rows));
+
+    const { data: newRows } = await supabase
+      .from("meal_plan_entries")
+      .select("id, day, pinned, recipes(id, title, prep_min, cook_min, tags, image_path)")
+      .eq("plan_id", planId);
+    setEntries(mapEntries(newRows));
+    setShowTemplates(false);
+  }
+
+  async function deleteTemplate(templateId: string) {
+    await supabase.from("meal_plans").delete().eq("id", templateId);
+    setTemplates((list) => list.filter((t) => t.id !== templateId));
+  }
+
   async function searchRecipes(text: string) {
     setPickerText(text);
     if (!text.trim()) { setRecipeOptions([]); return; }
@@ -182,9 +244,45 @@ export function WochenplanView() {
             <CardTitle>Dein Wochenplan</CardTitle>
             <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{filledCount} von 7 Mahlzeiten</span>
           </div>
+          <div className="flex items-center gap-1">
+            <Button type="button" variant="outline" className="h-8 text-xs" onClick={saveAsTemplate}>
+              <BookmarkPlus className="mr-1 h-4 w-4" /> Als Vorlage speichern
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => { const next = !showTemplates; setShowTemplates(next); if (next) void loadTemplates(); }}
+            >
+              <LayoutTemplate className="mr-1 h-4 w-4" /> Vorlagen
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {error && <p className="text-sm text-destructive">{error}</p>}
+          {showTemplates && (
+            <div className="rounded-lg border border-border p-3">
+              {templates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Noch keine Vorlagen gespeichert.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {templates.map((t) => (
+                    <li key={t.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span>{t.template_name ?? "Vorlage ohne Namen"}</span>
+                      <div className="flex items-center gap-1">
+                        <Button type="button" variant="outline" className="h-7 text-xs" onClick={() => applyTemplate(t.id)}>
+                          Auf diese Woche anwenden
+                        </Button>
+                        <Button type="button" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteTemplate(t.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {(missingVegetarian || missingFish) && (
             <div className="flex flex-wrap gap-2 text-xs">
               {missingVegetarian && (

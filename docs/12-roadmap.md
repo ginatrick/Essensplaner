@@ -21,7 +21,7 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 - [x] Wochenraster-UI *(ohne Drag & Drop — Zuweisung per Inline-Suche, mit Nutzer abgestimmt; nur 1 Slot/Tag vorerst, Schema trägt bereits Mittag+Abend)*
 - [x] `meal_plans` / `meal_plan_entries` + RLS
 - [x] Regel-Hinweise (14-Tage, veg, Fisch, Aufwand) *(Aufwand-Schwelle ist ein einfacher genereller Wert prep+cook > 60 ohne Trainingstag-Bezug — `household_members`/Trainingstage kommen erst Phase 6; veg/Fisch per Freitext-Tag-Match statt festem Vokabular)*
-- [ ] Templates
+- [x] Templates *(kein Beispiel-Set, nur eigene Vorlagen: „Als Vorlage speichern“ kopiert den aktuellen Plan in `meal_plans.status='template'` + neue Spalte `template_name`; Liste mit „Auf diese Woche anwenden“ überschreibt die betroffenen Tage der aktuellen Woche, kein Merge-Dialog)*
 - [ ] PDF/PNG-Export *(→ Codex)*
 
 ## Phase 3 — Einkaufsliste (ohne Preise)

@@ -21,7 +21,7 @@ Preise: `integer` in **Cent**. Mengen: `numeric` in **Basiseinheit** (g/ml/stk).
 **recipe_steps** `id · recipe_id · step_no · text`
 
 ## Planung
-**meal_plans** `id · user_id · week_start date · status('draft'|'final'|'template') · source('manual'|'suggested')`
+**meal_plans** `id · user_id · week_start date · status('draft'|'final'|'template') · source('manual'|'suggested') · template_name text(nullable, nur bei status='template')`
 **meal_plan_entries** `id · plan_id · day int(0-6) · slot('mittag'|'abend') · recipe_id · servings · pinned bool`
 
 ## Einkauf
