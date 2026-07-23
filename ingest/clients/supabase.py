@@ -33,15 +33,21 @@ def get_cached_rewe_price(ingredient_id: str, market_id: str) -> dict | None:
 
 
 def get_ingredient_name(ingredient_id: str) -> str | None:
+    """Liefert den Suchbegriff für die REWE-Preisabfrage: rewe_search_term,
+    falls gepflegt (Override für Fälle, in denen REWEs Produktname vom
+    ingredients.name abweicht, siehe Migration 20260723230000), sonst name."""
     result = (
         get_service_client()
         .from_("ingredients")
-        .select("name")
+        .select("name, rewe_search_term")
         .eq("id", ingredient_id)
         .limit(1)
         .execute()
     )
-    return result.data[0]["name"] if result.data else None
+    if not result.data:
+        return None
+    row = result.data[0]
+    return row["rewe_search_term"] or row["name"]
 
 
 def insert_rewe_price(ingredient_id: str, market_id: str, hit: dict) -> dict:

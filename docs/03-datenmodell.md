@@ -4,7 +4,9 @@ Preise: `integer` in **Cent**. Mengen: `numeric` in **Basiseinheit** (g/ml/stk).
 
 ## Stammdaten
 **ingredients** — kanonische Zutaten
-`id · name · slug(uniq) · base_unit · department_id · density_g_ml · kcal_100 · protein_100 · carbs_100 · fat_100 · fiber_100 · iron_mg_100 · calcium_mg_100 · season_months int[] · tags text[] · pack_size numeric(nullable) · pack_unit(nullable)`
+`id · name · slug(uniq) · base_unit · department_id · density_g_ml · kcal_100 · protein_100 · carbs_100 · fat_100 · fiber_100 · iron_mg_100 · calcium_mg_100 · season_months int[] · tags text[] · pack_size numeric(nullable) · pack_unit(nullable) · rewe_search_term(nullable)`
+
+`rewe_search_term`: Override für die REWE-Preisabfrage (`ingest/sources/rewe/fetch.py`), falls REWEs Produktname vom `name` abweicht und die Suche sonst leer läuft (z.B. "Rinderhack" → REWE führt es als "Rinderhackfleisch", bei kleinerem Filial-Sortiment matcht die REWE-Suche das nicht zuverlässig). `ingest/clients/supabase.py:get_ingredient_name` nutzt `rewe_search_term ?? name` als Suchbegriff.
 
 **ingredient_aliases** — Synonym-Mapping für Parser
 `id · ingredient_id · alias · source('recipe'|'offer'|'rewe') · confidence`
