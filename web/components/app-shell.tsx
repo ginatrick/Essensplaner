@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/preisvergleich", label: "Preisvergleich", icon: TrendingDown, built: true },
   { href: "/vorraete", label: "Vorräte", icon: Package, built: true },
   { href: "/ernaehrung", label: "Ernährung & Profil", icon: HeartPulse, built: true },
-  { href: "/auswertungen", label: "Auswertungen", icon: BarChart3, built: false },
+  { href: "/auswertungen", label: "Auswertungen", icon: BarChart3, built: true },
   { href: "/einstellungen", label: "Einstellungen", icon: Settings, built: true },
 ];
 

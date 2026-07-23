@@ -54,12 +54,12 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 - [x] `household_members` + Trainingstage *(`/ernaehrung`, Tabelle `household_members`; bewusst ohne `nutrition_targets` — docs/13 untersagt Kalorien-Vorgaben pro Person in der UI, YAGNI ohne Verwendungszweck)*
 
 ## Phase 7 — Lernen
-- [ ] `habit_events` überall instrumentieren
-- [ ] Nightly Aggregation → `taste_profile`, `recipe_stats`
-- [ ] Kandidatenpool + Constraint-Solver
-- [ ] Exploration ε
-- [ ] Haiku-Begründung
-- [ ] Akzeptanzrate-Dashboard
+- [x] `habit_events` überall instrumentieren *(recipe_manual_add + recipe_swapped bei manueller Planbearbeitung, suggestion_accepted + recipe_rejected beim Wochenvorschlag. Bewusst NICHT instrumentiert: recipe_kept — es gibt keinen "unverändert übernommen"-Moment außerhalb des Vorschlags-Flows; item_unchecked — bräuchte einen "Einkauf abschließen"-Flow, den es noch nicht gibt)*
+- [x] Nightly Aggregation → `taste_profile`, `recipe_stats` *(Postgres-Funktion `aggregate_habit_scores()` + pg_cron 03:00 täglich. `recipe_stats` aus der tatsächlichen Planungshistorie (meal_plans/meal_plan_entries), nicht aus habit_events — zuverlässiger. pg_cron muss im Supabase-Dashboard aktiviert sein, siehe Migrationskommentar)*
+- [x] Kandidatenpool + Constraint-Solver *(`web/lib/suggestions/`: candidates.ts + solver.ts, greedy statt volles Backtracking — Ergebnis geht in die normale Planbearbeitung, wo die Wochen-Ampel aus Phase 6 live weiterhilft, falls nicht schon grün)*
+- [x] Exploration ε *(1-2 Slots mit unbekanntem Rezept, ε=0.2, im Solver)*
+- [x] Haiku-Begründung *(`explain.ts`, nur auf übergebene Fakten gestützt — keine erfundenen Rezept-Ähnlichkeiten wie im docs/10-Beispiel, weil wir keine echte Ähnlichkeitsmetrik haben)*
+- [x] Akzeptanzrate-Dashboard *(`/auswertungen`: Akzeptanzrate, Rezept-Planungshistorie als Score-Debug-View, beliebte/unbeliebte Zutaten aus `taste_profile`)*
 
 ## Reihenfolge-Logik
 Phase 3 ist bewusst **vor** den Preisen: Eine sortierte Einkaufsliste ohne

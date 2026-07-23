@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Clock, Plus, Pencil, Trash2, UtensilsCrossed, BookmarkPlus, LayoutTemplate } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Plus, Pencil, Trash2, UtensilsCrossed, BookmarkPlus, LayoutTemplate, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,8 @@ import { weekStartIso, addWeeks, dateForDay, dayLabel, formatShortDate, formatWe
 import { isEffortHigh, isRepeatedWithin14Days, weekRuleSummary, type RuleEntry } from "@/lib/plan/rules";
 import { entriesForPlan } from "@/lib/plan/templates";
 import { evaluateWeek, type NutritionEntry, type WeekAmpel } from "@/lib/plan/nutritionEvaluator";
+import { logHabitEvent } from "@/lib/habits/logEvent";
+import { generateWeekSuggestion, type SuggestedWeekResult } from "@/app/(app)/plan/actions";
 
 type RecipeSummary = {
   id: string;
@@ -71,6 +73,9 @@ export function WochenplanView() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [nutritionAmpel, setNutritionAmpel] = useState<WeekAmpel | null>(null);
   const [showNutritionDetails, setShowNutritionDetails] = useState(false);
+  const [suggestion, setSuggestion] = useState<SuggestedWeekResult | null>(null);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [suggestionError, setSuggestionError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -222,6 +227,45 @@ export function WochenplanView() {
     setTemplates((list) => list.filter((t) => t.id !== templateId));
   }
 
+  // Phase 7 (docs/10-modul-lernen.md): Kandidatenpool + Constraint-Solver +
+  // Haiku-Begründung serverseitig, Anzeige/Übernehmen/Verwerfen hier.
+  async function requestSuggestion() {
+    setSuggestionLoading(true);
+    setSuggestionError("");
+    const result = await generateWeekSuggestion();
+    setSuggestionLoading(false);
+    if ("error" in result) { setSuggestionError(result.error); return; }
+    setSuggestion(result);
+  }
+
+  async function acceptSuggestion() {
+    if (!suggestion || !planId) return;
+    for (const slot of suggestion.slots) {
+      const existing = entries.find((e) => e.day === slot.day);
+      if (existing) {
+        await supabase.from("meal_plan_entries").update({ recipe_id: slot.recipeId }).eq("id", existing.id);
+      } else {
+        await supabase.from("meal_plan_entries").insert({ plan_id: planId, day: slot.day, slot: SLOT, recipe_id: slot.recipeId, servings: 4 });
+      }
+      await logHabitEvent(supabase, { eventType: "suggestion_accepted", recipeId: slot.recipeId });
+    }
+    setSuggestion(null);
+    const { data: rows } = await supabase
+      .from("meal_plan_entries")
+      .select("id, day, pinned, recipes(id, title, prep_min, cook_min, tags, image_path)")
+      .eq("plan_id", planId);
+    setEntries(mapEntries(rows));
+  }
+
+  async function discardSuggestion() {
+    if (suggestion) {
+      for (const slot of suggestion.slots) {
+        await logHabitEvent(supabase, { eventType: "recipe_rejected", recipeId: slot.recipeId });
+      }
+    }
+    setSuggestion(null);
+  }
+
   async function searchRecipes(text: string) {
     setPickerText(text);
     if (!text.trim()) { setRecipeOptions([]); return; }
@@ -234,9 +278,13 @@ export function WochenplanView() {
     const existing = entries.find((e) => e.day === day);
     if (existing) {
       await supabase.from("meal_plan_entries").update({ recipe_id: recipeId }).eq("id", existing.id);
+      // Ersetzt ein bereits geplantes Gericht -> negatives Signal fürs alte
+      // Rezept, das neue zählt separat als recipe_manual_add (aktive Wahl).
+      void logHabitEvent(supabase, { eventType: "recipe_swapped", recipeId: existing.recipe.id });
     } else {
       await supabase.from("meal_plan_entries").insert({ plan_id: planId, day, slot: SLOT, recipe_id: recipeId, servings: 4 });
     }
+    void logHabitEvent(supabase, { eventType: "recipe_manual_add", recipeId });
     setEditingDay(null);
     setPickerText("");
     setRecipeOptions([]);
@@ -280,6 +328,9 @@ export function WochenplanView() {
             <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{filledCount} von 7 Mahlzeiten</span>
           </div>
           <div className="flex items-center gap-1">
+            <Button type="button" variant="outline" className="h-8 text-xs" onClick={requestSuggestion} disabled={suggestionLoading}>
+              <Sparkles className="mr-1 h-4 w-4" /> {suggestionLoading ? "Vorschlag wird erstellt …" : "Woche vorschlagen"}
+            </Button>
             <Button type="button" variant="outline" className="h-8 text-xs" onClick={saveAsTemplate}>
               <BookmarkPlus className="mr-1 h-4 w-4" /> Als Vorlage speichern
             </Button>
@@ -295,6 +346,25 @@ export function WochenplanView() {
         </CardHeader>
         <CardContent className="space-y-3">
           {error && <p className="text-sm text-destructive">{error}</p>}
+          {suggestionError && <p className="text-sm text-destructive">{suggestionError}</p>}
+          {suggestion && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+              <p className="text-sm">{suggestion.explanation}</p>
+              <ul className="space-y-1 text-sm">
+                {suggestion.slots.map((slot) => (
+                  <li key={slot.day} className="flex items-center gap-2">
+                    <span className="w-10 shrink-0 font-medium">{dayLabel(slot.day)}</span>
+                    <span>{slot.title}</span>
+                    {slot.isExploration && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] text-violet-800">Neu</span>}
+                  </li>
+                ))}
+              </ul>
+              <div className="flex gap-2">
+                <Button type="button" className="h-8 text-xs" onClick={acceptSuggestion}>Übernehmen</Button>
+                <Button type="button" variant="outline" className="h-8 text-xs" onClick={discardSuggestion}>Verwerfen</Button>
+              </div>
+            </div>
+          )}
           {showTemplates && (
             <div className="rounded-lg border border-border p-3">
               {templates.length === 0 ? (
