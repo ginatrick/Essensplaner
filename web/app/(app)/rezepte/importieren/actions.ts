@@ -100,7 +100,7 @@ export async function importRecipesBulk(urls: string[]): Promise<BulkImportResul
       // und die Einkaufsliste addiert ml zu g).
       const hitIds = [...new Set(parsedIngredients.map((p) => p.ingredientId).filter((id): id is string => !!id))];
       const { data: unitRows } = hitIds.length
-        ? await supabase.from("ingredients").select("id, base_unit, density_g_ml").in("id", hitIds)
+        ? await supabase.from("ingredients").select("id, base_unit, density_g_ml, department_id").in("id", hitIds)
         : { data: [] };
       const unitById = new Map((unitRows ?? []).map((r) => [r.id, r]));
 

@@ -52,6 +52,22 @@ test("Angleichung an die Basiseinheit der Zutat: TL Salz (g) statt ml", () => {
   assert.deepEqual(toIngredientBaseUnit({ amount: 1, unit: "TL" }, { base_unit: "g" }), { amount: 5, unit: "g" });
 });
 
+test("Ohne gepflegte Dichte greift die Abteilungs-Schüttdichte", () => {
+  // Trockensortiment (7): 1 TL Zimt = 5 ml x 0.5 = 2.5 g statt 5 g.
+  assert.deepEqual(toIngredientBaseUnit({ amount: 1, unit: "TL" }, { base_unit: "g", department_id: 7 }), { amount: 2.5, unit: "g" });
+  // Backwaren (2): 1 EL Mehl = 15 ml x 0.55 = 8.25 g statt 15 g.
+  assert.deepEqual(toIngredientBaseUnit({ amount: 1, unit: "EL" }, { base_unit: "g", department_id: 2 }), { amount: 8.25, unit: "g" });
+  // Abteilung ohne Eintrag bleibt bei der Wasser-Näherung.
+  assert.deepEqual(toIngredientBaseUnit({ amount: 1, unit: "TL" }, { base_unit: "g", department_id: 3 }), { amount: 5, unit: "g" });
+});
+
+test("Gepflegtes density_g_ml schlägt die Abteilungs-Schüttdichte", () => {
+  assert.deepEqual(
+    toIngredientBaseUnit({ amount: 100, unit: "ml" }, { base_unit: "g", density_g_ml: 1.2, department_id: 7 }),
+    { amount: 120, unit: "g" },
+  );
+});
+
 test("Angleichung nutzt density_g_ml, wenn gepflegt", () => {
   assert.deepEqual(toIngredientBaseUnit({ amount: 100, unit: "ml" }, { base_unit: "g", density_g_ml: 0.91 }), { amount: 91, unit: "g" });
   assert.deepEqual(toIngredientBaseUnit({ amount: 91, unit: "g" }, { base_unit: "ml", density_g_ml: 0.91 }), { amount: 100, unit: "ml" });

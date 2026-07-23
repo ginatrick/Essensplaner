@@ -144,7 +144,7 @@ export function RezeptForm({ defaultValues, recipeId }: { defaultValues?: Partia
     // geführt wird, und die Einkaufsliste addiert ml zu g.
     const hitIds = [...new Set(values.ingredients.map((r) => r.ingredient_id).filter((id): id is string => !!id))];
     const { data: unitRows } = hitIds.length
-      ? await supabase.from("ingredients").select("id, base_unit, density_g_ml").in("id", hitIds)
+      ? await supabase.from("ingredients").select("id, base_unit, density_g_ml, department_id").in("id", hitIds)
       : { data: [] };
     const unitById = new Map((unitRows ?? []).map((r) => [r.id, r]));
     for (const row of values.ingredients) {

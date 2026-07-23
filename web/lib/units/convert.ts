@@ -72,24 +72,39 @@ export function toBaseUnit(input: {
   return { amount: input.amount * rule.factor, unit: rule.unit };
 }
 
+// Fallback-Schüttdichten pro Abteilung, wenn ingredients.density_g_ml fehlt.
+// Betrifft in der Praxis nur Löffelangaben ("1 TL Salz"), denn nur dort trifft
+// eine Volumeneinheit auf eine Zutat, die in g geführt wird. Trockengut liegt
+// deutlich unter Wasser — mit 1 ml = 1 g wäre die Menge dort etwa doppelt so
+// hoch wie real.
+//
+// ponytail: ein Wert für die ganze Abteilung, Salz (real ~1.2) und Oregano
+// (~0.3) bekommen denselben. Genau wird es erst mit gepflegtem density_g_ml
+// an der einzelnen Zutat, das hier immer Vorrang hat.
+const DEPARTMENT_FALLBACK_DENSITY: Record<number, number> = {
+  2: 0.55, // Backwaren — hier liegt das Mehl
+  7: 0.5, // Trockensortiment — Gewürze, Zucker, Salz, Trockenfrüchte, Nüsse
+};
+const DEFAULT_DENSITY = 1; // Wasser-Näherung für alles Übrige
+
 // toBaseUnit kennt nur die Einheit im Rezepttext, nicht die Zutat — "1 TL Salz"
 // wird zu 5 ml, obwohl Salz in ingredients in g geführt wird. Die
 // Einkaufslisten-Aggregation summiert aber stumpf pro Zutat und würde so ml zu
 // g addieren. Diese Funktion zieht das Ergebnis auf die Basiseinheit der Zutat.
 //
-// Ohne density_g_ml wird 1 ml = 1 g angenommen (Wasser-Näherung, in der Küche
-// für kleine Mengen üblich). Für Trockenes wie Zimt liegt sie zu hoch —
-// ponytail: bewusst grob, sauber wird es erst mit gepflegten Dichten.
 // stk lässt sich ohne Stückgewicht nicht umrechnen und bleibt unverändert.
 export function toIngredientBaseUnit(
   input: { amount: number; unit: string },
-  ingredient: { base_unit: string; density_g_ml?: number | null },
+  ingredient: { base_unit: string; density_g_ml?: number | null; department_id?: number | null },
 ): { amount: number; unit: BaseUnit } {
   const converted = toBaseUnit(input);
   const target = ingredient.base_unit;
   if (converted.unit === target || target === "stk" || converted.unit === "stk") return converted;
 
-  const density = ingredient.density_g_ml ?? 1;
+  const density =
+    ingredient.density_g_ml ??
+    DEPARTMENT_FALLBACK_DENSITY[ingredient.department_id ?? -1] ??
+    DEFAULT_DENSITY;
   if (converted.unit === "ml" && target === "g") return { amount: converted.amount * density, unit: "g" };
   if (converted.unit === "g" && target === "ml") return { amount: converted.amount / density, unit: "ml" };
   return converted;

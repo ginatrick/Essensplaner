@@ -68,7 +68,7 @@ export function UnaufgeloestView({ rows: initialRows }: { rows: DraftRow[] }) {
     // Menge auf die Basiseinheit der Zutat angleichen (sonst z.B. 5 ml bei
     // einer Zutat, die in g geführt wird — die Einkaufsliste addiert sonst
     // ml zu g).
-    const { data: target } = await supabase.from("ingredients").select("base_unit, density_g_ml").eq("id", ingredientId).single();
+    const { data: target } = await supabase.from("ingredients").select("base_unit, density_g_ml, department_id").eq("id", ingredientId).single();
     let converted;
     try {
       converted = toIngredientBaseUnit({ amount: parsedAmount, unit }, target ?? { base_unit: "g" });
