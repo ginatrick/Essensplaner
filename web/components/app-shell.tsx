@@ -24,7 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/plan", label: "Übersicht", icon: LayoutGrid, built: false },
   { href: "/plan", label: "Wochenplan", icon: CalendarDays, built: true },
   { href: "/rezepte", label: "Rezepte", icon: UtensilsCrossed, built: true },
-  { href: "/einkaufslisten", label: "Einkaufslisten", icon: ShoppingCart, built: false },
+  { href: "/einkaufslisten", label: "Einkaufslisten", icon: ShoppingCart, built: true },
   { href: "/angebote", label: "Angebote", icon: Tag, built: false },
   { href: "/preisvergleich", label: "Preisvergleich", icon: TrendingDown, built: false },
   { href: "/vorraete", label: "Vorräte", icon: Package, built: false },

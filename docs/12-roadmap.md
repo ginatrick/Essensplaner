@@ -25,10 +25,10 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 - [ ] PDF/PNG-Export *(→ Codex)*
 
 ## Phase 3 — Einkaufsliste (ohne Preise)
-- [ ] Zutaten-Aggregation über die Woche
+- [x] Zutaten-Aggregation über die Woche *(recipe_ingredients.amount ist bereits Basiseinheit, daher reiner skalierter Summen-Join ohne Unit-Konvertierung)*
 - [ ] Pantry-Modul + Abzug
 - [ ] Packungsrundung
-- [ ] Gruppierung nach Abteilung in Laufreihenfolge
+- [x] Gruppierung nach Abteilung in Laufreihenfolge *(/einkaufslisten, `web/lib/plan/aggregate.ts`)*
 - [ ] Abhaken, PWA-Offline
 
 ## Phase 4 — Angebote & Ingest
