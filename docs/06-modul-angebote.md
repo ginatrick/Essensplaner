@@ -16,6 +16,19 @@
 
 **v1 = Stufe 1 + 2.** Stufe 3/4 nur bei Bedarf.
 
+## Status pro Kette (Stand Recherche 2026-07-23)
+
+| Kette | Weg | Aufwand |
+|---|---|---|
+| REWE | Stufe 1, Live-API (`shop.rewe.de/api/products`) | erledigt, siehe `codex/005-rewe-preisabfrage.md` |
+| Lidl, Kaufland | Stufe 2, PDF über gemeinsame Schwarz-Gruppe-Plattform (`endpoints.leaflets.schwarz`) | `codex/006-prospekt-schwarz-leaflets.md` |
+| ALDI Nord, Norma | Angebote direkt strukturiert im HTML der eigenen Website, kein PDF/Haiku nötig | `codex/007-prospekt-aldi-norma.md` |
+| EDEKA, Netto | Blocken automatisierte Zugriffe aktiv (HTTP 403, auch mit gerendertem Browser) — bewusst **nicht** verfolgt, das wäre aktives Umgehen von Bot-Schutz statt normales Scraping | zurückgestellt |
+
+Aggregatoren (Stufe 3, z. B. marktguru) sind raus: AGB verbieten
+automatisiertes Auslesen explizit ("Untersagt ist insbesondere auch der
+Einsatz von Computerprogrammen zum automatischen Auslesen von Daten.").
+
 ## PDF-Prospekt-Pipeline
 1. PDF laden (URL pro Kette gepflegt in `stores`/Config)
 2. `pdfplumber` → Text + Bounding Boxes pro Seite

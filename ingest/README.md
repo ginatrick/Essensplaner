@@ -10,6 +10,7 @@ cd ingest
 python -m venv .venv
 .venv\Scripts\activate        # Windows; unter Linux/Mac: source .venv/bin/activate
 pip install -r requirements-dev.txt
+playwright install chromium   # Browser-Binary für die Prospekt-Crawler (sources/*/fetch.py)
 copy .env.example .env        # Werte eintragen: INGEST_SHARED_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 ```
 

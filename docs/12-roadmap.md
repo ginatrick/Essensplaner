@@ -35,7 +35,7 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 - [x] FastAPI-Grundgerüst lokal, Shared-Secret-Auth *(`ingest/`, `GET /health` offen, alles andere hinter `X-Ingest-Secret`; Cloudflare Tunnel manuell einzurichten, Anleitung in `ingest/README.md`)*
 - [x] `stores` manuell pflegen (15–25 Märkte) + OSRM-Distanzen *(20 Filialen: Edeka, Norma, Lidl, Aldi, Rewe, Netto, Kaufland im 15-km-Umkreis um 98587 Steinbach-Hallenberg; Koordinaten aus OSM/Overpass, distance_km/drive_min per öffentlichem OSRM-Server einmalig berechnet und fest eingetragen — kein Live-Redeploy bei Straßenänderungen)*
 - [x] REWE-Preisabfrage *(von Codex nach `codex/005-rewe-preisabfrage.md` umgesetzt; `GET /rewe/price` in `ingest/`, 24h-Cache in `rewe_prices`. Nachkorrektur: `httpx.get` folgt standardmäßig keinen Redirects, `shop.rewe.de` leitet aber 301 auf `www.rewe.de/shop` um — `follow_redirects=True` ergänzt, sonst lief jede Anfrage ins Leere. Live gegen Markt Schmalkalden (1469536) mit 3 Zutaten verifiziert)*
-- [ ] Prospekt-PDF-Pipeline mit Haiku *(→ Codex pro Kette)*
+- [ ] Prospekt-PDF-Pipeline mit Haiku *(→ Codex pro Kette, Kontrakte fertig: `codex/006-prospekt-schwarz-leaflets.md` Lidl+Kaufland, `codex/007-prospekt-aldi-norma.md` Aldi+Norma ohne Haiku — direkt strukturiertes HTML. EDEKA/Netto blocken aktiv, zurückgestellt, siehe docs/06)*
 - [ ] Matching + Confidence + Review-UI
 - [ ] Cron Mo/Mi + advisory lock
 - [ ] `price_history` + Plausibilitätsfilter
