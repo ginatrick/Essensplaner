@@ -30,22 +30,56 @@ export function aggregateIngredients(
   return [...sums.values()];
 }
 
+// Pantry-Abzug: was schon im Vorrat ist, muss nicht mehr gekauft werden.
+// Bei Einheiten-Mismatch (sollte durch base_unit-Constraint nicht vorkommen) wird
+// der Vorrat ignoriert statt falsch zu rechnen.
+export type PantryEntry = { ingredient_id: string; amount: number; unit: string };
+
+export type ShoppingNeed = AggregatedIngredient & { needed: number };
+
+export function subtractPantry(items: AggregatedIngredient[], pantry: Map<string, PantryEntry>): ShoppingNeed[] {
+  return items
+    .map((item) => {
+      const stock = pantry.get(item.ingredient_id);
+      const needed = stock && stock.unit === item.unit ? Math.max(0, item.amount - stock.amount) : item.amount;
+      return { ...item, needed };
+    })
+    .filter((item) => item.needed > 0);
+}
+
+// Packungsrundung: Bedarf auf ganze Packungen aufrunden, wenn eine Packungsgröße
+// bekannt ist. Ohne bekannte Packungsgröße wird der Bedarf unverändert übernommen.
+export type PackInfo = { pack_size: number; pack_unit: string };
+
+export type ShoppingItem = ShoppingNeed & { packCount: number | null; buyAmount: number };
+
+export function roundToPackages(items: ShoppingNeed[], packs: Map<string, PackInfo>): ShoppingItem[] {
+  return items.map((item) => {
+    const pack = packs.get(item.ingredient_id);
+    if (!pack || pack.pack_unit !== item.unit || pack.pack_size <= 0) {
+      return { ...item, packCount: null, buyAmount: item.needed };
+    }
+    const packCount = Math.ceil(item.needed / pack.pack_size);
+    return { ...item, packCount, buyAmount: packCount * pack.pack_size };
+  });
+}
+
 export type IngredientMeta = { id: string; name: string; department_id: number | null };
 export type DepartmentMeta = { id: number; name: string; sort_order: number };
 
-export type GroupedDepartment = {
+export type GroupedDepartment<T> = {
   department_id: number | null;
   name: string;
   sort_order: number;
-  items: (AggregatedIngredient & { name: string })[];
+  items: (T & { name: string })[];
 };
 
-export function groupByDepartment(
-  items: AggregatedIngredient[],
+export function groupByDepartment<T extends { ingredient_id: string }>(
+  items: T[],
   ingredients: Map<string, IngredientMeta>,
   departments: Map<number, DepartmentMeta>
-): GroupedDepartment[] {
-  const groups = new Map<string, GroupedDepartment>();
+): GroupedDepartment<T>[] {
+  const groups = new Map<string, GroupedDepartment<T>>();
 
   for (const item of items) {
     const meta = ingredients.get(item.ingredient_id);

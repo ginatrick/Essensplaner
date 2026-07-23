@@ -9,12 +9,17 @@ import { weekStartIso, addWeeks, formatWeekRange } from "@/lib/plan/week";
 import {
   aggregateIngredients,
   groupByDepartment,
+  subtractPantry,
+  roundToPackages,
   type GroupedDepartment,
   type IngredientMeta,
+  type PantryEntry,
+  type PackInfo,
   type PlanEntryWithIngredients,
+  type ShoppingItem,
 } from "@/lib/plan/aggregate";
 
-type IngredientRow = { ingredient_id: string; amount: number; unit: string; ingredients: { name: string; department_id: number | null } | null };
+type IngredientRow = { ingredient_id: string; amount: number; unit: string; ingredients: { name: string; department_id: number | null; pack_size: number | null; pack_unit: string | null } | null };
 type EntryRow = { servings: number; recipes: { servings_base: number; id: string } | null };
 
 function formatAmount(amount: number, unit: string): string {
@@ -25,7 +30,7 @@ function formatAmount(amount: number, unit: string): string {
 export function EinkaufslisteView() {
   const supabase = useMemo(() => createClient(), []);
   const [weekStart, setWeekStart] = useState(() => weekStartIso());
-  const [groups, setGroups] = useState<GroupedDepartment[]>([]);
+  const [groups, setGroups] = useState<GroupedDepartment<ShoppingItem>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -56,15 +61,17 @@ export function EinkaufslisteView() {
 
       const { data: ingredientRows, error: ingredientsError } = await supabase
         .from("recipe_ingredients")
-        .select("recipe_id, ingredient_id, amount, unit, ingredients(name, department_id)")
+        .select("recipe_id, ingredient_id, amount, unit, ingredients(name, department_id, pack_size, pack_unit)")
         .in("recipe_id", recipeIds);
       if (ingredientsError) { if (!cancelled) { setError("Zutaten konnten nicht geladen werden."); setLoading(false); } return; }
 
       const { data: departmentRows } = await supabase.from("departments").select("id, name, sort_order");
+      const { data: pantryRows } = await supabase.from("pantry").select("ingredient_id, amount, unit");
       if (cancelled) return;
 
       const byRecipe = new Map<string, { ingredient_id: string; amount: number; unit: string }[]>();
       const ingredientMeta = new Map<string, IngredientMeta>();
+      const packs = new Map<string, PackInfo>();
       for (const row of (ingredientRows ?? []) as unknown as (IngredientRow & { recipe_id: string })[]) {
         if (!byRecipe.has(row.recipe_id)) byRecipe.set(row.recipe_id, []);
         byRecipe.get(row.recipe_id)!.push({ ingredient_id: row.ingredient_id, amount: row.amount, unit: row.unit });
@@ -74,6 +81,9 @@ export function EinkaufslisteView() {
             name: row.ingredients?.name ?? row.ingredient_id,
             department_id: row.ingredients?.department_id ?? null,
           });
+          if (row.ingredients?.pack_size != null && row.ingredients.pack_unit) {
+            packs.set(row.ingredient_id, { pack_size: row.ingredients.pack_size, pack_unit: row.ingredients.pack_unit });
+          }
         }
       }
 
@@ -86,8 +96,14 @@ export function EinkaufslisteView() {
         }));
 
       const departments = new Map((departmentRows ?? []).map((d) => [d.id, d]));
+      const pantry = new Map<string, PantryEntry>(
+        (pantryRows ?? []).map((r) => [r.ingredient_id, { ingredient_id: r.ingredient_id, amount: r.amount, unit: r.unit }])
+      );
+
       const aggregated = aggregateIngredients(planEntries);
-      setGroups(groupByDepartment(aggregated, ingredientMeta, departments));
+      const needed = subtractPantry(aggregated, pantry);
+      const withPackages = roundToPackages(needed, packs);
+      setGroups(groupByDepartment(withPackages, ingredientMeta, departments));
       setLoading(false);
     }
     load();
@@ -130,7 +146,11 @@ export function EinkaufslisteView() {
                   {group.items.map((item) => (
                     <li key={item.ingredient_id} className="flex items-center justify-between px-3 py-2 text-sm">
                       <span>{item.name}</span>
-                      <span className="text-muted-foreground">{formatAmount(item.amount, item.unit)}</span>
+                      <span className="text-muted-foreground">
+                        {formatAmount(item.buyAmount, item.unit)}
+                        {item.packCount != null && ` (${item.packCount}× Packung)`}
+                        {item.buyAmount !== item.needed && ` · Bedarf ${formatAmount(item.needed, item.unit)}`}
+                      </span>
                     </li>
                   ))}
                 </ul>

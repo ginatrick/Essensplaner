@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { aggregateIngredients, groupByDepartment } from "./aggregate.ts";
+import { aggregateIngredients, groupByDepartment, subtractPantry, roundToPackages } from "./aggregate.ts";
 
 describe("aggregateIngredients", () => {
   test("summiert dieselbe Zutat über mehrere Einträge, skaliert mit Portionen", () => {
@@ -39,5 +39,47 @@ describe("groupByDepartment", () => {
       departments
     );
     expect(result.map((g) => g.name)).toEqual(["Backwaren", "Obst", "Sonstiges"]);
+  });
+});
+
+describe("subtractPantry", () => {
+  test("zieht Vorrat ab und lässt Bedarf 0 aus der Liste fallen", () => {
+    const pantry = new Map([["tomate", { ingredient_id: "tomate", amount: 100, unit: "g" }]]);
+    const result = subtractPantry(
+      [
+        { ingredient_id: "tomate", amount: 300, unit: "g" },
+        { ingredient_id: "reis", amount: 100, unit: "g" },
+      ],
+      pantry
+    );
+    expect(result).toEqual([
+      { ingredient_id: "tomate", amount: 300, unit: "g", needed: 200 },
+      { ingredient_id: "reis", amount: 100, unit: "g", needed: 100 },
+    ]);
+  });
+
+  test("kompletter Vorrat deckt Bedarf, Position verschwindet", () => {
+    const pantry = new Map([["reis", { ingredient_id: "reis", amount: 500, unit: "g" }]]);
+    const result = subtractPantry([{ ingredient_id: "reis", amount: 100, unit: "g" }], pantry);
+    expect(result).toEqual([]);
+  });
+
+  test("Einheiten-Mismatch ignoriert Vorrat", () => {
+    const pantry = new Map([["reis", { ingredient_id: "reis", amount: 5, unit: "stk" }]]);
+    const result = subtractPantry([{ ingredient_id: "reis", amount: 100, unit: "g" }], pantry);
+    expect(result).toEqual([{ ingredient_id: "reis", amount: 100, unit: "g", needed: 100 }]);
+  });
+});
+
+describe("roundToPackages", () => {
+  test("rundet auf ganze Packungen auf", () => {
+    const packs = new Map([["hack", { pack_size: 500, pack_unit: "g" }]]);
+    const result = roundToPackages([{ ingredient_id: "hack", amount: 350, unit: "g", needed: 350 }], packs);
+    expect(result).toEqual([{ ingredient_id: "hack", amount: 350, unit: "g", needed: 350, packCount: 1, buyAmount: 500 }]);
+  });
+
+  test("ohne bekannte Packungsgröße bleibt der Bedarf unverändert", () => {
+    const result = roundToPackages([{ ingredient_id: "reis", amount: 100, unit: "g", needed: 100 }], new Map());
+    expect(result).toEqual([{ ingredient_id: "reis", amount: 100, unit: "g", needed: 100, packCount: null, buyAmount: 100 }]);
   });
 });

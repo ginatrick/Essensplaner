@@ -26,8 +26,8 @@ Checkboxen hier pflegen. `CLAUDE.md` bleibt unverändert.
 
 ## Phase 3 — Einkaufsliste (ohne Preise)
 - [x] Zutaten-Aggregation über die Woche *(recipe_ingredients.amount ist bereits Basiseinheit, daher reiner skalierter Summen-Join ohne Unit-Konvertierung)*
-- [ ] Pantry-Modul + Abzug
-- [ ] Packungsrundung
+- [x] Pantry-Modul + Abzug *(/vorraete, Tabelle `pantry`; Abzug nur bei Einheiten-Match, sonst wird der Vorrat ignoriert statt falsch gerechnet)*
+- [x] Packungsrundung *(`ingredients.pack_size`/`pack_unit` nullable — ohne Angabe bleibt der Bedarf ungerundet; noch keine Datenpflege/Seed für Packungsgrößen)*
 - [x] Gruppierung nach Abteilung in Laufreihenfolge *(/einkaufslisten, `web/lib/plan/aggregate.ts`)*
 - [ ] Abhaken, PWA-Offline
 

@@ -4,7 +4,7 @@ Preise: `integer` in **Cent**. Mengen: `numeric` in **Basiseinheit** (g/ml/stk).
 
 ## Stammdaten
 **ingredients** — kanonische Zutaten
-`id · name · slug(uniq) · base_unit · department_id · density_g_ml · kcal_100 · protein_100 · carbs_100 · fat_100 · fiber_100 · iron_mg_100 · calcium_mg_100 · season_months int[] · tags text[]`
+`id · name · slug(uniq) · base_unit · department_id · density_g_ml · kcal_100 · protein_100 · carbs_100 · fat_100 · fiber_100 · iron_mg_100 · calcium_mg_100 · season_months int[] · tags text[] · pack_size numeric(nullable) · pack_unit(nullable)`
 
 **ingredient_aliases** — Synonym-Mapping für Parser
 `id · ingredient_id · alias · source('recipe'|'offer'|'rewe') · confidence`
