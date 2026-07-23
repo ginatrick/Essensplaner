@@ -5,7 +5,7 @@ import { parseIngredientLine } from "@/lib/recipes/parseLine";
 import { resolveWithHaikuFallback } from "@/lib/recipes/resolveWithHaikuFallback";
 import { extractRecipeFromHtml, RecipeJsonLdError, type RawRecipeDraft } from "@/lib/recipes/importJsonLd";
 import { findDuplicateRecipes } from "@/lib/recipes/findDuplicates";
-import { toBaseUnit } from "@/lib/units/convert";
+import { toIngredientBaseUnit } from "@/lib/units/convert";
 import { createClient } from "@/lib/supabase/server";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -94,13 +94,26 @@ export async function importRecipesBulk(urls: string[]): Promise<BulkImportResul
       const steps = raw.steps.map((text, i) => ({ recipe_id: recipe.id, step_no: i + 1, text })).filter((s) => s.text.trim());
       if (steps.length) await supabase.from("recipe_steps").insert(steps);
 
+      // Basiseinheit/Dichte der getroffenen Zutaten einmal sammeln, damit die
+      // Mengen auf die Einheit der Zutat angeglichen werden können (sonst
+      // landet "1 TL Salz" als 5 ml in einer Zutat, die in g geführt wird,
+      // und die Einkaufsliste addiert ml zu g).
+      const hitIds = [...new Set(parsedIngredients.map((p) => p.ingredientId).filter((id): id is string => !!id))];
+      const { data: unitRows } = hitIds.length
+        ? await supabase.from("ingredients").select("id, base_unit, density_g_ml").in("id", hitIds)
+        : { data: [] };
+      const unitById = new Map((unitRows ?? []).map((r) => [r.id, r]));
+
       const ingredientRows = [];
       const draftRows = [];
       for (const p of parsedIngredients) {
         if (!p.name.trim()) continue;
         if (!p.ingredientId) { draftRows.push({ recipe_id: recipe.id, raw_name: p.name, amount: String(p.amount), unit: p.unit, note: p.note }); continue; }
         try {
-          const converted = p.unit ? toBaseUnit({ amount: p.amount, unit: p.unit }) : { amount: p.amount, unit: "stk" as const };
+          const target = unitById.get(p.ingredientId);
+          const converted = p.unit && target
+            ? toIngredientBaseUnit({ amount: p.amount, unit: p.unit }, target)
+            : { amount: p.amount, unit: (target?.base_unit ?? "stk") as "g" | "ml" | "stk" };
           ingredientRows.push({ recipe_id: recipe.id, ingredient_id: p.ingredientId, amount: converted.amount, unit: converted.unit, note: p.note });
         } catch {
           draftRows.push({ recipe_id: recipe.id, raw_name: p.name, amount: String(p.amount), unit: p.unit, note: p.note });

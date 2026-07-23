@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
-import { toBaseUnit } from "@/lib/units/convert";
+import { toIngredientBaseUnit } from "@/lib/units/convert";
 import { slugifyDe } from "@/lib/text/slugifyDe";
 
 export type DraftRow = {
@@ -64,14 +64,18 @@ export function UnaufgeloestView({ rows: initialRows }: { rows: DraftRow[] }) {
     if (!amount || !unit) { setErrors((e) => ({ ...e, [row.id]: "Bitte Menge und Einheit angeben." })); return; }
     const parsedAmount = Number(amount);
     if (!Number.isFinite(parsedAmount)) { setErrors((e) => ({ ...e, [row.id]: "Ungültige Menge." })); return; }
+    const supabase = createClient();
+    // Menge auf die Basiseinheit der Zutat angleichen (sonst z.B. 5 ml bei
+    // einer Zutat, die in g geführt wird — die Einkaufsliste addiert sonst
+    // ml zu g).
+    const { data: target } = await supabase.from("ingredients").select("base_unit, density_g_ml").eq("id", ingredientId).single();
     let converted;
     try {
-      converted = toBaseUnit({ amount: parsedAmount, unit });
+      converted = toIngredientBaseUnit({ amount: parsedAmount, unit }, target ?? { base_unit: "g" });
     } catch {
       setErrors((e) => ({ ...e, [row.id]: `Unbekannte Einheit: "${unit}"` }));
       return;
     }
-    const supabase = createClient();
     const { error: insertError } = await supabase.from("recipe_ingredients").insert({
       recipe_id: row.recipeId, ingredient_id: ingredientId, amount: converted.amount, unit: converted.unit, note: row.note,
     });

@@ -71,3 +71,26 @@ export function toBaseUnit(input: {
 
   return { amount: input.amount * rule.factor, unit: rule.unit };
 }
+
+// toBaseUnit kennt nur die Einheit im Rezepttext, nicht die Zutat — "1 TL Salz"
+// wird zu 5 ml, obwohl Salz in ingredients in g geführt wird. Die
+// Einkaufslisten-Aggregation summiert aber stumpf pro Zutat und würde so ml zu
+// g addieren. Diese Funktion zieht das Ergebnis auf die Basiseinheit der Zutat.
+//
+// Ohne density_g_ml wird 1 ml = 1 g angenommen (Wasser-Näherung, in der Küche
+// für kleine Mengen üblich). Für Trockenes wie Zimt liegt sie zu hoch —
+// ponytail: bewusst grob, sauber wird es erst mit gepflegten Dichten.
+// stk lässt sich ohne Stückgewicht nicht umrechnen und bleibt unverändert.
+export function toIngredientBaseUnit(
+  input: { amount: number; unit: string },
+  ingredient: { base_unit: string; density_g_ml?: number | null },
+): { amount: number; unit: BaseUnit } {
+  const converted = toBaseUnit(input);
+  const target = ingredient.base_unit;
+  if (converted.unit === target || target === "stk" || converted.unit === "stk") return converted;
+
+  const density = ingredient.density_g_ml ?? 1;
+  if (converted.unit === "ml" && target === "g") return { amount: converted.amount * density, unit: "g" };
+  if (converted.unit === "g" && target === "ml") return { amount: converted.amount / density, unit: "ml" };
+  return converted;
+}

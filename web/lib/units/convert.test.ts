@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { toBaseUnit } from "./convert.ts";
+import { toBaseUnit, toIngredientBaseUnit } from "./convert.ts";
 
 test("Gewichtseinheiten linear auf g", () => {
   assert.deepEqual(toBaseUnit({ amount: 500, unit: "g" }), { amount: 500, unit: "g" });
@@ -44,4 +44,25 @@ test("Case-insensitiv und mit Leerraum", () => {
 
 test("Unbekannte Einheit wirft Fehler", () => {
   assert.throws(() => toBaseUnit({ amount: 1, unit: "Schuss" }), /Unbekannte Einheit/);
+});
+
+test("Angleichung an die Basiseinheit der Zutat: TL Salz (g) statt ml", () => {
+  // Ohne Angleichung käme 5 ml heraus, obwohl Salz in g geführt wird — die
+  // Einkaufsliste würde ml zu g addieren.
+  assert.deepEqual(toIngredientBaseUnit({ amount: 1, unit: "TL" }, { base_unit: "g" }), { amount: 5, unit: "g" });
+});
+
+test("Angleichung nutzt density_g_ml, wenn gepflegt", () => {
+  assert.deepEqual(toIngredientBaseUnit({ amount: 100, unit: "ml" }, { base_unit: "g", density_g_ml: 0.91 }), { amount: 91, unit: "g" });
+  assert.deepEqual(toIngredientBaseUnit({ amount: 91, unit: "g" }, { base_unit: "ml", density_g_ml: 0.91 }), { amount: 100, unit: "ml" });
+});
+
+test("Passt die Einheit schon, bleibt alles unverändert", () => {
+  assert.deepEqual(toIngredientBaseUnit({ amount: 200, unit: "g" }, { base_unit: "g" }), { amount: 200, unit: "g" });
+  assert.deepEqual(toIngredientBaseUnit({ amount: 2, unit: "EL" }, { base_unit: "ml" }), { amount: 30, unit: "ml" });
+});
+
+test("stk lässt sich ohne Stückgewicht nicht umrechnen und bleibt stehen", () => {
+  assert.deepEqual(toIngredientBaseUnit({ amount: 2, unit: "Stück" }, { base_unit: "g" }), { amount: 2, unit: "stk" });
+  assert.deepEqual(toIngredientBaseUnit({ amount: 200, unit: "g" }, { base_unit: "stk" }), { amount: 200, unit: "g" });
 });

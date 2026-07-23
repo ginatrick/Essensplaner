@@ -92,6 +92,33 @@ test("Klammer-Zusatz ohne führende Menge", () => {
   });
 });
 
+test("Unicode-Bruch als Menge", () => {
+  assert.deepEqual(parseIngredientLine("½ TL Zimt"), {
+    amount: 0.5,
+    unit: "TL",
+    name: "Zimt",
+    note: null,
+  });
+});
+
+test("Unicode-Bruch ohne Einheit", () => {
+  assert.deepEqual(parseIngredientLine("½ Zitrone"), {
+    amount: 0.5,
+    unit: null,
+    name: "Zitrone",
+    note: null,
+  });
+});
+
+test("Gemischte Zahl (1 ½) wird summiert, nicht abgeschnitten", () => {
+  assert.deepEqual(parseIngredientLine("1 ½ EL Öl"), {
+    amount: 1.5,
+    unit: "EL",
+    name: "Öl",
+    note: null,
+  });
+});
+
 test("Mehrere Klammer-Zusätze werden zusammengeführt", () => {
   assert.deepEqual(parseIngredientLine("1 Dose Mais (à 140 g) (Abtropfgewicht)"), {
     amount: 1,

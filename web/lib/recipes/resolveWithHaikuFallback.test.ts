@@ -8,7 +8,7 @@ import type { AnthropicMessagesClient } from "./haikuClassify.ts";
 // Call (.rpc("insert_ingredient_alias", ...)) ab.
 function makeFakeSupabase(options: {
   exactData?: { ingredient_id: string; alias: string } | null;
-  knownIngredients?: { id: string; name: string }[];
+  knownIngredients?: { id: string; name: string; slug?: string }[];
 }) {
   const calls: { rpcWrite: unknown[] } = { rpcWrite: [] };
   return {
@@ -18,6 +18,30 @@ function makeFakeSupabase(options: {
         return {
           select(_cols: string) {
             return {
+              // Stufe 2b: exakter Slug-Treffer (.eq -> .limit -> .maybeSingle)
+              eq(_column: string, value: string) {
+                return {
+                  limit(_n: number) {
+                    return {
+                      async maybeSingle() {
+                        const hit = (options.knownIngredients ?? []).find((i) => i.slug === value);
+                        return { data: hit ? { id: hit.id } : null, error: null };
+                      },
+                    };
+                  },
+                };
+              },
+              // Stufe 2b: eindeutiger Präfix-Treffer (.like -> .limit)
+              like(_column: string, pattern: string) {
+                const prefix = pattern.replace(/-%$/, "");
+                const hits = (options.knownIngredients ?? []).filter((i) => i.slug?.startsWith(`${prefix}-`));
+                return {
+                  async limit(_n: number) {
+                    return { data: hits.map((i) => ({ id: i.id })), error: null };
+                  },
+                };
+              },
+              // Stufe 3: volle Liste für Haiku
               async limit(_n: number) {
                 return { data: options.knownIngredients ?? [], error: null };
               },
@@ -73,6 +97,51 @@ test("Alias-Treffer (exakt) → kein Haiku-Call, keine Alias-Schreibung", async 
 
   assert.equal(result, "ing-1");
   assert.equal(supabase.calls.rpcWrite.length, 0);
+});
+
+test("Alias-Miss, aber Slug-Treffer in ingredients → kein Haiku-Call, Alias geschrieben", async () => {
+  // Der reale Fehlerfall: "Mandeln" steht in ingredients, hat aber keinen
+  // Alias-Eintrag — landete vorher unnötig beim LLM und blieb bei einem
+  // API-Fehler komplett unaufgelöst.
+  const supabase = makeFakeSupabase({
+    exactData: null,
+    knownIngredients: [{ id: "ing-mandeln", name: "Mandeln", slug: "mandeln" }],
+  });
+  let haikuCalled = false;
+  const haiku: AnthropicMessagesClient = {
+    messages: { async create() { haikuCalled = true; return { content: [] }; } },
+  };
+
+  const result = await resolveWithHaikuFallback(supabase, haiku, "Mandeln");
+
+  assert.equal(result, "ing-mandeln");
+  assert.equal(haikuCalled, false);
+  assert.deepEqual(supabase.calls.rpcWrite, [
+    { p_ingredient_id: "ing-mandeln", p_alias: "Mandeln", p_source: "recipe", p_confidence: null },
+  ]);
+});
+
+test("Slug-Treffer greift auch bei ae/oe/ue-Schreibweise statt Umlaut", async () => {
+  const supabase = makeFakeSupabase({
+    exactData: null,
+    knownIngredients: [{ id: "ing-kaese", name: "Käse", slug: "kaese" }],
+  });
+  const haiku = makeFakeHaiku(null);
+
+  assert.equal(await resolveWithHaikuFallback(supabase, haiku, "Kaese"), "ing-kaese");
+});
+
+test("Mehrdeutiger Präfix (Milch 3,5% / 1,5%) wird NICHT geraten, geht an Haiku", async () => {
+  const supabase = makeFakeSupabase({
+    exactData: null,
+    knownIngredients: [
+      { id: "ing-a", name: "Milch 3,5%", slug: "milch-3-5" },
+      { id: "ing-b", name: "Milch 1,5%", slug: "milch-1-5" },
+    ],
+  });
+  const haiku = makeFakeHaiku("ing-a");
+
+  assert.equal(await resolveWithHaikuFallback(supabase, haiku, "Milch"), "ing-a");
 });
 
 test("Alias-Miss, Haiku-Treffer → ingredient_id zurück UND Alias geschrieben", async () => {

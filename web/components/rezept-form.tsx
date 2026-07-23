@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
-import { toBaseUnit } from "@/lib/units/convert";
+import { toIngredientBaseUnit } from "@/lib/units/convert";
 import { findDuplicateRecipes, type DuplicateCandidate } from "@/lib/recipes/findDuplicates";
 import { slugifyDe } from "@/lib/text/slugifyDe";
 
@@ -139,6 +139,14 @@ export function RezeptForm({ defaultValues, recipeId }: { defaultValues?: Partia
     // beim nächsten Bearbeiten spurlos verschwunden, siehe Migration
     // 20260723200000_recipe_ingredient_drafts.sql).
     const draftRows: { recipe_id: string; raw_name: string; amount: string | null; unit: string | null; note: string | null }[] = [];
+    // Basiseinheit/Dichte der zugeordneten Zutaten holen, um die Menge darauf
+    // anzugleichen — "1 TL Salz" ergäbe sonst 5 ml bei einer Zutat, die in g
+    // geführt wird, und die Einkaufsliste addiert ml zu g.
+    const hitIds = [...new Set(values.ingredients.map((r) => r.ingredient_id).filter((id): id is string => !!id))];
+    const { data: unitRows } = hitIds.length
+      ? await supabase.from("ingredients").select("id, base_unit, density_g_ml").in("id", hitIds)
+      : { data: [] };
+    const unitById = new Map((unitRows ?? []).map((r) => [r.id, r]));
     for (const row of values.ingredients) {
       if (!row.name.trim()) continue; // komplett leere Zeile, nichts zu speichern
       const note = row.note?.trim() || null;
@@ -151,7 +159,8 @@ export function RezeptForm({ defaultValues, recipeId }: { defaultValues?: Partia
       const amount = Number(row.amount);
       if (!Number.isFinite(amount)) { annotatedIngredients.push({ ...row, error: "Bitte eine gültige Menge eingeben." }); continue; }
       try {
-        const converted = toBaseUnit({ amount, unit: row.unit });
+        const target = unitById.get(row.ingredient_id) ?? { base_unit: "g" };
+        const converted = toIngredientBaseUnit({ amount, unit: row.unit }, target);
         ingredientRows.push({ recipe_id: recipe.id, ingredient_id: row.ingredient_id, amount: converted.amount, unit: converted.unit, note });
         annotatedIngredients.push({ ...row, error: undefined });
       } catch {
