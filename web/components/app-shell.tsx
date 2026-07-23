@@ -21,7 +21,7 @@ import { LogoutButton } from "@/components/logout-button";
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; built: boolean };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/plan", label: "Übersicht", icon: LayoutGrid, built: false },
+  { href: "/uebersicht", label: "Übersicht", icon: LayoutGrid, built: true },
   { href: "/plan", label: "Wochenplan", icon: CalendarDays, built: true },
   { href: "/rezepte", label: "Rezepte", icon: UtensilsCrossed, built: true },
   { href: "/einkaufslisten", label: "Einkaufslisten", icon: ShoppingCart, built: true },
@@ -33,7 +33,17 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/einstellungen", label: "Einstellungen", icon: Settings, built: true },
 ];
 
-export function AppShell({ email, children }: { email: string; children: React.ReactNode }) {
+type HouseholdMember = { id: string; name: string; age: number | null };
+
+export function AppShell({
+  email,
+  members = [],
+  children,
+}: {
+  email: string;
+  members?: HouseholdMember[];
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const greetingName = email.split("@")[0];
 
@@ -83,7 +93,26 @@ export function AppShell({ email, children }: { email: string; children: React.R
 
         <div className="mt-6 border-t border-sidebar-border pt-4">
           <p className="mb-2 px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Dein Haushalt</p>
-          <p className="px-2 text-sm text-muted-foreground">Angemeldet als {email}</p>
+          {members.length > 0 ? (
+            <ul className="space-y-1">
+              {members.map((m) => (
+                <li key={m.id} className="flex items-center gap-2 px-2 py-1 text-sm">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
+                    {m.name.slice(0, 2).toUpperCase()}
+                  </span>
+                  <span className="truncate text-muted-foreground">
+                    {m.name}
+                    {m.age !== null && ` (${m.age})`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Link href="/ernaehrung" className="block px-2 text-sm text-muted-foreground hover:underline">
+              Haushalt anlegen →
+            </Link>
+          )}
+          <p className="mt-3 truncate px-2 text-xs text-muted-foreground">{email}</p>
         </div>
       </aside>
 

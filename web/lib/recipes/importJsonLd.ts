@@ -6,6 +6,13 @@ export type RawRecipeDraft = {
   servings_base?: number;
   prep_min?: number;
   cook_min?: number;
+  /**
+   * Bild-URL beim Herausgeber. Bewusst nur verlinkt, nicht kopiert:
+   * Rezeptfotos sind im Gegensatz zur Zutatenliste schutzfähig
+   * (docs/13-recht-risiken.md), und für eine private Sammlung ist die
+   * Referenz auf das Original das mildere Mittel.
+   */
+  image_url?: string;
   steps: string[];
   ingredients: string[];
 };
@@ -81,6 +88,24 @@ function instructionTexts(value: unknown): string[] {
   return [];
 }
 
+// schema.org/image erlaubt String, ImageObject oder Listen davon — die erste
+// brauchbare http(s)-URL gewinnt.
+function firstImageUrl(value: unknown): string | undefined {
+  if (typeof value === "string") return /^https?:\/\//.test(value.trim()) ? value.trim() : undefined;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const url = firstImageUrl(item);
+      if (url) return url;
+    }
+    return undefined;
+  }
+  if (value && typeof value === "object") {
+    const item = value as Record<string, unknown>;
+    return firstImageUrl(item.url ?? item.contentUrl);
+  }
+  return undefined;
+}
+
 export function extractRecipeFromHtml(html: string): RawRecipeDraft {
   const recipe = readJsonLdBlocks(html).map(findRecipe).find((item): item is Record<string, unknown> => item !== null);
   if (!recipe) throw new RecipeJsonLdError("Kein Rezept auf dieser Seite gefunden.");
@@ -92,6 +117,7 @@ export function extractRecipeFromHtml(html: string): RawRecipeDraft {
     servings_base: firstInteger(recipe.recipeYield),
     prep_min: durationToMinutes(recipe.prepTime),
     cook_min: durationToMinutes(recipe.cookTime),
+    image_url: firstImageUrl(recipe.image),
     steps: instructionTexts(recipe.recipeInstructions).map(decodeHtmlEntities),
     ingredients: (Array.isArray(recipe.recipeIngredient)
       ? recipe.recipeIngredient.filter((item): item is string => typeof item === "string")

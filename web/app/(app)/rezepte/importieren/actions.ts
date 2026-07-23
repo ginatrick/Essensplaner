@@ -11,7 +11,11 @@ import { createClient } from "@/lib/supabase/server";
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 type FormIngredient = { amount: string; unit: string; name: string; note: string | null; ingredient_id: string | null; error?: string };
-export type ImportedRecipeDraft = Omit<RawRecipeDraft, "ingredients"> & { ingredients: FormIngredient[] };
+// image_url heißt im Formular image_path (Spaltenname in recipes).
+export type ImportedRecipeDraft = Omit<RawRecipeDraft, "ingredients" | "image_url"> & {
+  ingredients: FormIngredient[];
+  image_path: string | null;
+};
 export type ImportState = { draft?: ImportedRecipeDraft; error?: string };
 
 export async function importRecipe(_previous: ImportState, formData: FormData): Promise<ImportState> {
@@ -44,7 +48,7 @@ export async function importRecipe(_previous: ImportState, formData: FormData): 
         return { amount: String(parsed.amount), unit: parsed.unit ?? "", name: parsed.name, note: parsed.note, ingredient_id: null, error: "Zutatensuche fehlgeschlagen." };
       }
     }));
-    return { draft: { ...raw, source_url: input, ingredients } };
+    return { draft: { ...raw, source_url: input, image_path: raw.image_url ?? null, ingredients } };
   } catch (error) {
     if (error instanceof RecipeJsonLdError) return { error: error.message };
     if (error instanceof DOMException && error.name === "TimeoutError") return { error: "Der Abruf der Rezeptseite hat zu lange gedauert." };
@@ -87,7 +91,8 @@ export async function importRecipesBulk(urls: string[]): Promise<BulkImportResul
 
       const { data: recipe, error: recipeError } = await supabase.from("recipes").insert({
         title: raw.title, source_url: url, servings_base: raw.servings_base ?? 4,
-        prep_min: raw.prep_min ?? null, cook_min: raw.cook_min ?? null, user_id: userId,
+        prep_min: raw.prep_min ?? null, cook_min: raw.cook_min ?? null,
+        image_path: raw.image_url ?? null, user_id: userId,
       }).select("id").single();
       if (recipeError || !recipe) { results.push({ url, status: "error", error: recipeError?.message ?? "Speichern fehlgeschlagen." }); continue; }
 

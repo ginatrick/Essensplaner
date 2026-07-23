@@ -7,6 +7,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: claims } = await supabase.auth.getClaims();
   if (!claims?.claims?.sub) redirect("/login");
   const email = (claims.claims.email as string | undefined) ?? "";
+  const { data: members } = await supabase.from("household_members").select("id, name, age").order("name");
 
-  return <AppShell email={email}>{children}</AppShell>;
+  return <AppShell email={email} members={members ?? []}>{children}</AppShell>;
 }
