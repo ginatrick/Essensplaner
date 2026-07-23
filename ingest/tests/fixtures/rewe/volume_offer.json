@@ -1,0 +1,26 @@
+{
+  "_embedded": {
+    "products": [
+      {
+        "productName": "REWE Frei von Fettarme H-Milch 1l",
+        "_embedded": {
+          "articles": [
+            {
+              "_embedded": {
+                "listing": {
+                  "pricing": {
+                    "currentRetailPrice": 109,
+                    "basePrice": 109,
+                    "baseUnit": {"L": 1},
+                    "grammage": "1l",
+                    "discount": {"regularPrice": 129, "discountRate": 15.0}
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

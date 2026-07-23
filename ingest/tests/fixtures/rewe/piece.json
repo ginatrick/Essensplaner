@@ -1,0 +1,24 @@
+{
+  "_embedded": {
+    "products": [
+      {
+        "productName": "REWE Salatherzen 3 Stück",
+        "_embedded": {
+          "articles": [
+            {
+              "_embedded": {
+                "listing": {
+                  "pricing": {
+                    "currentRetailPrice": 199,
+                    "currency": "EUR",
+                    "grammage": "3 Stück"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

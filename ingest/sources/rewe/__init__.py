@@ -1,0 +1,1 @@
+"""REWE-Shop-API source."""
