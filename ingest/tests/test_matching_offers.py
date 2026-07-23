@@ -29,12 +29,15 @@ class FakeClient:
     def __init__(self, stores):
         self.stores = stores
         self.inserted: list[dict] = []
+        self.price_history: list[dict] = []
 
     def from_(self, table):
         if table == "stores":
             return FakeStoresQuery(self.stores)
         if table == "offers":
             return FakeInsert(self.inserted)
+        if table == "price_history":
+            return FakeInsert(self.price_history)
         raise AssertionError(f"unerwartete Tabelle: {table}")
 
 
@@ -56,6 +59,24 @@ def test_fan_out_ueber_alle_filialen_der_kette(monkeypatch):
     assert {row["store_id"] for row in client.inserted} == {"store-a", "store-b"}
     assert all(row["ingredient_id"] == "ing-1" and row["confidence"] == 0.9 for row in client.inserted)
     assert all(row["source"] == "aldi_nord" for row in client.inserted)
+    assert client.price_history == [
+        {"ingredient_id": "ing-1", "store_id": "store-a", "price_cent": 59},
+        {"ingredient_id": "ing-1", "store_id": "store-b", "price_cent": 59},
+    ]
+
+
+def test_unmatched_offers_landen_nicht_in_price_history(monkeypatch):
+    monkeypatch.setattr(offers_module, "match_ingredient", lambda client, name: (None, 0.0))
+    client = FakeClient(stores=[{"id": "store-a", "chain": "ALDI"}])
+    raw_offers = [{
+        "title": "Unbekanntes Produkt", "brand": None, "amount": None, "unit": None, "price_cent": 199,
+        "valid_from": None, "valid_to": None, "source_chain": "aldi_nord",
+    }]
+
+    saved = offers_module.save_offers(client, raw_offers)
+
+    assert saved == 1
+    assert client.price_history == []
 
 
 def test_ohne_bekannte_filiale_wird_nichts_geschrieben(monkeypatch):

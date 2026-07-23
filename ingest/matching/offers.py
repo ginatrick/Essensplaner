@@ -52,4 +52,14 @@ def save_offers(client, offers: list[dict]) -> int:
 
     if rows:
         client.from_("offers").insert(rows).execute()
+        # price_history nur für zugeordnete Zeilen (ingredient_id not null,
+        # siehe Migration 20260723150000) — für die Plausibilitätsprüfung
+        # (docs/06) reicht ein Preispunkt pro (Zutat, Filiale, Zeitpunkt).
+        history_rows = [
+            {"ingredient_id": row["ingredient_id"], "store_id": row["store_id"], "price_cent": row["price_cent"]}
+            for row in rows
+            if row["ingredient_id"] is not None
+        ]
+        if history_rows:
+            client.from_("price_history").insert(history_rows).execute()
     return len(rows)

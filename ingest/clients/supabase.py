@@ -45,15 +45,39 @@ def get_ingredient_name(ingredient_id: str) -> str | None:
 
 
 def insert_rewe_price(ingredient_id: str, market_id: str, hit: dict) -> dict:
+    client = get_service_client()
     result = (
-        get_service_client()
+        client
         .from_("rewe_prices")
         .insert({"ingredient_id": ingredient_id, "market_id": market_id, **hit})
         .select("product_name, amount, unit, price_cent, is_offer")
         .single()
         .execute()
     )
+    _log_rewe_price_history(client, ingredient_id, market_id, hit["price_cent"])
     return result.data
+
+
+def _log_rewe_price_history(client, ingredient_id: str, market_id: str, price_cent: int) -> None:
+    """price_history für die Plausibilitätsprüfung (docs/06). rewe_prices
+    referenziert Filialen über market_id (REWEs eigene wwIdent), price_history
+    über stores.id — daher hier auf die passende Filiale auflösen. Kein
+    Treffer (Markt-ID noch nicht in stores.rewe_market_id gepflegt) → einfach
+    keinen Historieneintrag schreiben, kein Fehler."""
+    store = (
+        client.from_("stores")
+        .select("id")
+        .eq("rewe_market_id", market_id)
+        .limit(1)
+        .execute()
+    )
+    if not store.data:
+        return
+    client.from_("price_history").insert({
+        "ingredient_id": ingredient_id,
+        "store_id": store.data[0]["id"],
+        "price_cent": price_cent,
+    }).execute()
 
 
 # Lock gegen Doppelläufe (docs/06-modul-angebote.md), siehe Kommentar in der
